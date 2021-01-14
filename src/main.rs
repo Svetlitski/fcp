@@ -3,6 +3,7 @@ use std::env;
 use std::fmt::Display;
 use std::fs;
 use std::os::unix;
+use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::PathBuf;
 
 fn main() {
@@ -16,15 +17,18 @@ fn show_error(first: impl Display, second: impl Display) {
 }
 
 fn copy_file(source: PathBuf, dest: PathBuf) -> Result<(), ()> {
-    let file_type = fs::symlink_metadata(&source)
-        .map_err(|err| show_error(source.display(), err))?
-        .file_type();
+    let metadata =
+        fs::symlink_metadata(&source).map_err(|err| show_error(source.display(), err))?;
+    let file_type = metadata.file_type();
     if file_type.is_symlink() {
         let link = fs::read_link(&source).map_err(|err| show_error(source.display(), err))?;
         unix::fs::symlink(&link, &dest)
             .map_err(|err| show_error(format!("{}, {}", link.display(), dest.display()), err))?;
     } else if file_type.is_dir() {
-        fs::create_dir(&dest).map_err(|err| show_error(dest.display(), err))?;
+        fs::DirBuilder::new()
+            .mode(metadata.permissions().mode())
+            .create(&dest)
+            .map_err(|err| show_error(dest.display(), err))?;
         fs::read_dir(&source)
             .map_err(|err| show_error(dest.display(), err))?
             .collect::<Box<_>>()
