@@ -1,4 +1,4 @@
-use rayon::prelude::*;
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::env;
 use std::fmt::Display;
 use std::fs;
