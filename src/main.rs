@@ -2,6 +2,7 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::env;
 use std::fmt::Display;
 use std::fs;
+use std::os::unix;
 use std::path::PathBuf;
 
 fn main() {
@@ -15,14 +16,18 @@ fn show_error(first: impl Display, second: impl Display) {
 }
 
 fn copy_file(source: PathBuf, dest: PathBuf) -> Result<(), ()> {
-    if fs::metadata(&source)
+    let file_type = fs::symlink_metadata(&source)
         .map_err(|err| show_error(source.display(), err))?
-        .is_dir()
-    {
+        .file_type();
+    if file_type.is_symlink() {
+        let link = fs::read_link(&source).map_err(|err| show_error(source.display(), err))?;
+        unix::fs::symlink(&link, &dest)
+            .map_err(|err| show_error(format!("{}, {}", link.display(), dest.display()), err))?;
+    } else if file_type.is_dir() {
         fs::create_dir(&dest).map_err(|err| show_error(dest.display(), err))?;
         fs::read_dir(&source)
             .map_err(|err| show_error(dest.display(), err))?
-            .collect::<Vec<_>>()
+            .collect::<Box<_>>()
             .into_par_iter()
             .for_each(|entry| match entry {
                 Ok(entry) => {
