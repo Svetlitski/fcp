@@ -1,3 +1,4 @@
+#![allow(clippy::needless_return)]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::env;
 use std::fmt::Display;
@@ -12,25 +13,46 @@ fn main() {
     copy_file(source, dest);
 }
 
+macro_rules! try_or_log {
+    ( $call:expr,$arg:expr ) => {{
+        match $call($arg) {
+            Ok(result) => result,
+            Err(err) => {
+                show_error($arg.display(), err);
+                return;
+            }
+        }
+    }};
+    ( $call:expr,$arg1:expr,$arg2:expr ) => {{
+        match $call($arg1, $arg2) {
+            Ok(result) => result,
+            Err(err) => {
+                show_error(format!("{}, {}", $arg1.display(), $arg2.display()), err);
+                return;
+            }
+        }
+    }};
+}
+
 fn show_error(first: impl Display, second: impl Display) {
     eprintln!("{}: {}", first, second);
 }
 
-fn copy_file(source: PathBuf, dest: PathBuf) -> Result<(), ()> {
-    let metadata =
-        fs::symlink_metadata(&source).map_err(|err| show_error(source.display(), err))?;
+fn copy_file(source: PathBuf, dest: PathBuf) {
+    let metadata = try_or_log!(fs::symlink_metadata, &source);
     let file_type = metadata.file_type();
     if file_type.is_symlink() {
-        let link = fs::read_link(&source).map_err(|err| show_error(source.display(), err))?;
-        unix::fs::symlink(&link, &dest)
-            .map_err(|err| show_error(format!("{}, {}", link.display(), dest.display()), err))?;
+        let link = try_or_log!(fs::read_link, &source);
+        try_or_log!(unix::fs::symlink, &link, &dest);
     } else if file_type.is_dir() {
-        fs::DirBuilder::new()
+        if let Err(err) = fs::DirBuilder::new()
             .mode(metadata.permissions().mode())
             .create(&dest)
-            .map_err(|err| show_error(dest.display(), err))?;
-        fs::read_dir(&source)
-            .map_err(|err| show_error(dest.display(), err))?
+        {
+            show_error(dest.display(), err);
+            return;
+        }
+        try_or_log!(fs::read_dir, &source)
             .collect::<Box<_>>()
             .into_par_iter()
             .for_each(|entry| match entry {
@@ -40,8 +62,6 @@ fn copy_file(source: PathBuf, dest: PathBuf) -> Result<(), ()> {
                 Err(err) => eprintln!("{}", err),
             });
     } else {
-        fs::copy(&source, &dest)
-            .map_err(|err| show_error(format!("{}, {}", source.display(), dest.display()), err))?;
+        try_or_log!(fs::copy, &source, &dest);
     }
-    Ok(())
 }
