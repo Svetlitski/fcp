@@ -1,4 +1,3 @@
-#![allow(clippy::needless_return)]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::env;
 use std::fmt::Display;
@@ -17,30 +16,28 @@ fn show_error(first: impl Display, second: impl Display) {
     eprintln!("{}: {}", first, second);
 }
 
+macro_rules! passthrough {
+    ($_:expr) => {
+        ", {}"
+    };
+}
+
 /// Eliminates the boilerplate of calling a function which may fail,
 /// and if so logging a detailed error message before returning from the
 /// current function.
 macro_rules! try_or_log {
-    ( $call:expr,$arg:expr ) => {{
-        match $call($arg) {
+    ($func:expr, $arg1:expr $(, $arg2:expr )?) => {
+        match $func($arg1 $(, $arg2)?) {
             Ok(result) => result,
             Err(err) => {
-                show_error($arg.display(), err);
+                show_error(format!(concat!("{}" $(, passthrough!($arg2))?), $arg1.display() $(, $arg2.display())?), err);
                 return;
             }
         }
-    }};
-    ( $call:expr,$arg1:expr,$arg2:expr ) => {{
-        match $call($arg1, $arg2) {
-            Ok(result) => result,
-            Err(err) => {
-                show_error(format!("{}, {}", $arg1.display(), $arg2.display()), err);
-                return;
-            }
-        }
-    }};
+    };
 }
 
+#[allow(clippy::needless_return)]
 fn copy_file(source: PathBuf, dest: PathBuf) {
     let metadata = try_or_log!(fs::symlink_metadata, &source);
     let file_type = metadata.file_type();
