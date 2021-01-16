@@ -13,6 +13,13 @@ fn main() {
     copy_file(source, dest);
 }
 
+fn show_error(first: impl Display, second: impl Display) {
+    eprintln!("{}: {}", first, second);
+}
+
+/// Eliminates the boilerplate of calling a function which may fail,
+/// and if so logging a detailed error message before returning from the
+/// current function.
 macro_rules! try_or_log {
     ( $call:expr,$arg:expr ) => {{
         match $call($arg) {
@@ -34,10 +41,6 @@ macro_rules! try_or_log {
     }};
 }
 
-fn show_error(first: impl Display, second: impl Display) {
-    eprintln!("{}: {}", first, second);
-}
-
 fn copy_file(source: PathBuf, dest: PathBuf) {
     let metadata = try_or_log!(fs::symlink_metadata, &source);
     let file_type = metadata.file_type();
@@ -56,9 +59,7 @@ fn copy_file(source: PathBuf, dest: PathBuf) {
             .collect::<Box<_>>()
             .into_par_iter()
             .for_each(|entry| match entry {
-                Ok(entry) => {
-                    copy_file(entry.path(), dest.join(entry.file_name()));
-                }
+                Ok(entry) => copy_file(entry.path(), dest.join(entry.file_name())),
                 Err(err) => eprintln!("{}", err),
             });
     } else {
