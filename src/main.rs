@@ -1,11 +1,9 @@
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
-use std::env;
 use std::fmt::Display;
-use std::fs;
 use std::os::unix;
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::PathBuf;
-use std::process;
+use std::{env, fs, process};
 
 static HELP: &str = "\
 fcp
@@ -18,20 +16,19 @@ USAGE:
 \tCopy each SOURCE into DESTINATION_DIRECTORY";
 
 fn main() {
-    let args: Vec<_> = env::args().skip(1).collect();
+    let args: Box<_> = env::args().skip(1).collect();
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
         fatal(HELP);
     }
-    let mut args: Vec<_> = args.iter().map(PathBuf::from).collect();
+    let args: Box<_> = args.iter().map(PathBuf::from).collect();
     match args.len() {
         0 | 1 => fatal("Please provide at least two arguments"),
         2 => {
-            let (dest, source) = (args.pop().unwrap(), args.pop().unwrap());
-            copy_file(source, dest);
+            copy_file(args.first().unwrap(), args.last().unwrap());
         }
         _ => {
-            let dest = args.pop().unwrap();
-            copy_many(args, dest);
+            let (dest, sources) = args.split_last().unwrap();
+            copy_many(sources, dest);
         }
     }
 }
@@ -67,7 +64,7 @@ macro_rules! try_or_log {
 }
 
 /// Copy each file in `sources` into the directory `dest`.
-fn copy_many(sources: Vec<PathBuf>, dest: PathBuf) {
+fn copy_many(sources: &[PathBuf], dest: &PathBuf) {
     let metadata = match fs::metadata(&dest) {
         Ok(metadata) => metadata,
         Err(err) => fatal(format!("{}: {}", dest.display(), err)),
@@ -84,33 +81,33 @@ fn copy_many(sources: Vec<PathBuf>, dest: PathBuf) {
             }
         };
         let dest = dest.join(file_name);
-        copy_file(source, dest);
+        copy_file(&source, &dest);
     });
 }
 
 #[allow(clippy::needless_return)]
-fn copy_file(source: PathBuf, dest: PathBuf) {
-    let metadata = try_or_log!(fs::symlink_metadata, &source);
+fn copy_file(source: &PathBuf, dest: &PathBuf) {
+    let metadata = try_or_log!(fs::symlink_metadata, source);
     let file_type = metadata.file_type();
     if file_type.is_symlink() {
-        let link = try_or_log!(fs::read_link, &source);
-        try_or_log!(unix::fs::symlink, &link, &dest);
+        let link = &try_or_log!(fs::read_link, source);
+        try_or_log!(unix::fs::symlink, link, dest);
     } else if file_type.is_dir() {
         if let Err(err) = fs::DirBuilder::new()
             .mode(metadata.permissions().mode())
-            .create(&dest)
+            .create(dest)
         {
             show_error(dest.display(), err);
             return;
         }
-        try_or_log!(fs::read_dir, &source)
+        try_or_log!(fs::read_dir, source)
             .collect::<Box<_>>()
             .into_par_iter()
             .for_each(|entry| match entry {
-                Ok(entry) => copy_file(entry.path(), dest.join(entry.file_name())),
+                Ok(entry) => copy_file(&entry.path(), &dest.join(entry.file_name())),
                 Err(err) => eprintln!("{}", err),
             });
     } else {
-        try_or_log!(fs::copy, &source, &dest);
+        try_or_log!(fs::copy, source, dest);
     }
 }
