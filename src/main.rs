@@ -15,17 +15,30 @@ USAGE:
 \tCopy SOURCE to DESTINATION_FILE, overwriting DESTINATION_FILE if it exists
 
 \tfcp SOURCE ... DESTINATION_DIRECTORY
-\tCopy each SOURCE into DESTINATION_DIRECTORY
-";
+\tCopy each SOURCE into DESTINATION_DIRECTORY";
 
 fn main() {
     let args: Vec<_> = env::args().skip(1).collect();
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
-        eprint!("{}", HELP);
-        process::exit(1);
+        fatal(HELP);
     }
-    let (source, dest) = (PathBuf::from(&args[0]), PathBuf::from(&args[1]));
-    copy_file(source, dest);
+    let mut args: Vec<_> = args.iter().map(PathBuf::from).collect();
+    match args.len() {
+        0 | 1 => fatal("Please provide at least two arguments"),
+        2 => {
+            let (dest, source) = (args.pop().unwrap(), args.pop().unwrap());
+            copy_file(source, dest);
+        }
+        _ => {
+            let dest = args.pop().unwrap();
+            copy_many(args, dest);
+        }
+    }
+}
+
+fn fatal(message: impl Display) -> ! {
+    eprintln!("{}", message);
+    process::exit(1);
 }
 
 fn show_error(first: impl Display, second: impl Display) {
@@ -51,6 +64,28 @@ macro_rules! try_or_log {
             }
         }
     };
+}
+
+/// Copy each file in `sources` into the directory `dest`.
+fn copy_many(sources: Vec<PathBuf>, dest: PathBuf) {
+    let metadata = match fs::metadata(&dest) {
+        Ok(metadata) => metadata,
+        Err(err) => fatal(format!("{}: {}", dest.display(), err)),
+    };
+    if !metadata.is_dir() {
+        fatal(format!("{} is not a directory", dest.display()));
+    }
+    sources.into_par_iter().for_each(|source| {
+        let file_name = match source.file_name() {
+            Some(file_name) => file_name,
+            None => {
+                show_error(source.display(), "file path cannot end with ..");
+                return;
+            }
+        };
+        let dest = dest.join(file_name);
+        copy_file(source, dest);
+    });
 }
 
 #[allow(clippy::needless_return)]
