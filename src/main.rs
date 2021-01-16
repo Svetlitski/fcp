@@ -5,9 +5,25 @@ use std::fs;
 use std::os::unix;
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::PathBuf;
+use std::process;
+
+static HELP: &str = "\
+fcp
+
+USAGE:
+\tfcp SOURCE DESTINATION_FILE
+\tCopy SOURCE to DESTINATION_FILE, overwriting DESTINATION_FILE if it exists
+
+\tfcp SOURCE ... DESTINATION_DIRECTORY
+\tCopy each SOURCE into DESTINATION_DIRECTORY
+";
 
 fn main() {
     let args: Vec<_> = env::args().skip(1).collect();
+    if args.iter().any(|arg| arg == "-h" || arg == "--help") {
+        eprint!("{}", HELP);
+        process::exit(1);
+    }
     let (source, dest) = (PathBuf::from(&args[0]), PathBuf::from(&args[1]));
     copy_file(source, dest);
 }
