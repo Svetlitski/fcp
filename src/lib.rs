@@ -1,45 +1,20 @@
+use fs_err as fs;
+use fs_err::os::unix::fs as unix;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::fmt::Display;
-use std::os::unix;
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
-use std::path::PathBuf;
-use std::{fs, process};
+use std::path::{Path, PathBuf};
+use std::{io, process};
 
 pub fn fatal(message: impl Display) -> ! {
     eprintln!("{}", message);
     process::exit(1);
 }
 
-fn show_error(first: impl Display, second: impl Display) {
-    eprintln!("{}: {}", first, second);
-}
-
-macro_rules! passthrough {
-    ($_:expr) => {
-        ", {}"
-    };
-}
-
-/// Eliminates the boilerplate of calling a function which may fail,
-/// and if so logging a detailed error message before returning from the
-/// current function.
-macro_rules! try_or_log {
-    ($func:expr, $arg1:expr $(, $arg2:expr )?) => {
-        match $func($arg1 $(, $arg2)?) {
-            Ok(result) => result,
-            Err(err) => {
-                show_error(format!(concat!("{}" $(, passthrough!($arg2))?), $arg1.display() $(, $arg2.display())?), err);
-                return;
-            }
-        }
-    };
-}
-
 /// Copy each file in `sources` into the directory `dest`.
-pub fn copy_many(sources: &[PathBuf], dest: &PathBuf) {
+pub fn copy_many(sources: &[PathBuf], dest: &Path) {
     let metadata = match fs::metadata(&dest) {
         Ok(metadata) => metadata,
-        Err(err) => fatal(format!("{}: {}", dest.display(), err)),
+        Err(err) => fatal(err),
     };
     if !metadata.is_dir() {
         fatal(format!("{} is not a directory", dest.display()));
@@ -47,32 +22,23 @@ pub fn copy_many(sources: &[PathBuf], dest: &PathBuf) {
     sources.into_par_iter().for_each(|source| {
         let file_name = match source.file_name() {
             Some(file_name) => file_name,
-            None => {
-                show_error(source.display(), "file path cannot end with ..");
-                return;
-            }
+            None => return eprintln!("{}: {}", source.display(), "file path cannot end with .."),
         };
         let dest = dest.join(file_name);
         copy_file(&source, &dest);
     });
 }
 
-#[allow(clippy::needless_return)]
-pub fn copy_file(source: &PathBuf, dest: &PathBuf) {
-    let metadata = try_or_log!(fs::symlink_metadata, source);
+fn copy_file_impl(source: &Path, dest: &Path) -> io::Result<()> {
+    let metadata = fs::symlink_metadata(source)?;
     let file_type = metadata.file_type();
     if file_type.is_symlink() {
-        let link = &try_or_log!(fs::read_link, source);
-        try_or_log!(unix::fs::symlink, link, dest);
+        let link = fs::read_link(source)?;
+        unix::symlink(link, dest)?;
     } else if file_type.is_dir() {
-        if let Err(err) = fs::DirBuilder::new()
-            .mode(metadata.permissions().mode())
-            .create(dest)
-        {
-            show_error(dest.display(), err);
-            return;
-        }
-        try_or_log!(fs::read_dir, source)
+        fs::create_dir(dest)?;
+        fs::set_permissions(dest, metadata.permissions())?;
+        fs::read_dir(source)?
             .collect::<Box<_>>()
             .into_par_iter()
             .for_each(|entry| match entry {
@@ -80,6 +46,14 @@ pub fn copy_file(source: &PathBuf, dest: &PathBuf) {
                 Err(err) => eprintln!("{}", err),
             });
     } else {
-        try_or_log!(fs::copy, source, dest);
+        fs::copy(source, dest)?;
+    }
+
+    Ok(())
+}
+
+pub fn copy_file(source: &Path, dest: &Path) {
+    if let Err(err) = copy_file_impl(source, dest) {
+        eprintln!("{}", err);
     }
 }
