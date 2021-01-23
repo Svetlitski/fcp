@@ -1,9 +1,10 @@
 use fs_err as fs;
 use fs_err::os::unix::fs as unix;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use std::ffi::OsStr;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
-use std::{io, process};
+use std::{env, io, process};
 
 pub fn fatal(message: impl Display) -> ! {
     eprintln!("{}", message);
@@ -55,5 +56,22 @@ fn copy_file_impl(source: &Path, dest: &Path) -> io::Result<()> {
 pub fn copy_file(source: &Path, dest: &Path) {
     if let Err(err) = copy_file_impl(source, dest) {
         eprintln!("{}", err);
+    }
+}
+
+pub fn normalize_path(path: String) -> io::Result<PathBuf> {
+    let mut path = PathBuf::from(path);
+    let file_name = path.file_name().map(OsStr::to_owned);
+    path.pop();
+    let directory = (if path.components().count() == 0 {
+        env::current_dir()
+    } else {
+        Ok(path)
+    })?
+    .canonicalize()?;
+    if let Some(file_name) = file_name {
+        Ok(directory.join(file_name))
+    } else {
+        Ok(directory)
     }
 }
