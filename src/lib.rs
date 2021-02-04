@@ -1,10 +1,15 @@
-use fs_err as fs;
-use fs_err::os::unix::fs as unix;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::{env, io, process};
+use std::os::unix::fs::PermissionsExt;
+
+mod filesystem;
+
+use crate::filesystem as fs;
+
+
 
 pub fn fatal(message: impl Display) -> ! {
     eprintln!("{}", message);
@@ -30,15 +35,14 @@ pub fn copy_many(sources: &[PathBuf], dest: &Path) {
     });
 }
 
-fn copy_file_impl(source: &Path, dest: &Path) -> io::Result<()> {
+fn copy_file_impl(source: &Path, dest: &Path) -> Result<(), fs::Error>  {
     let metadata = fs::symlink_metadata(source)?;
     let file_type = metadata.file_type();
     if file_type.is_symlink() {
         let link = fs::read_link(source)?;
-        unix::symlink(link, dest)?;
+        fs::symlink(link, dest)?;
     } else if file_type.is_dir() {
-        fs::create_dir(dest)?;
-        fs::set_permissions(dest, metadata.permissions())?;
+        fs::create_dir(dest, metadata.permissions().mode())?;
         fs::read_dir(source)?
             .collect::<Box<_>>()
             .into_par_iter()

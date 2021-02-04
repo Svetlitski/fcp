@@ -200,15 +200,8 @@ name = "fcp"
 version = "0.1.0"
 dependencies = [
  "criterion",
- "fs-err",
  "rayon",
 ]
-
-[[package]]
-name = "fs-err"
-version = "2.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcd1163ae48bda72a20ae26d66a04d3094135cadab911cff418ae5e33f253431"
 
 [[package]]
 name = "half"
