@@ -7,11 +7,11 @@ static HELP: &str = "\
 fcp
 
 USAGE:
-\tfcp SOURCE DESTINATION_FILE
-\tCopy SOURCE to DESTINATION_FILE, overwriting DESTINATION_FILE if it exists
+    fcp SOURCE DESTINATION_FILE
+    Copy SOURCE to DESTINATION_FILE, overwriting DESTINATION_FILE if it exists
 
-\tfcp SOURCE ... DESTINATION_DIRECTORY
-\tCopy each SOURCE into DESTINATION_DIRECTORY";
+    fcp SOURCE ... DESTINATION_DIRECTORY
+    Copy each SOURCE into DESTINATION_DIRECTORY";
 
 fn main() {
     let args: Vec<_> = env::args().skip(1).collect();
