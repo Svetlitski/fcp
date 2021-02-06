@@ -1,15 +1,12 @@
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
-use std::ffi::OsStr;
 use std::fmt::Display;
-use std::path::{Path, PathBuf};
-use std::{env, io, process};
 use std::os::unix::fs::PermissionsExt;
+use std::path::{Path, PathBuf};
+use std::process;
 
 mod filesystem;
 
 use crate::filesystem as fs;
-
-
 
 pub fn fatal(message: impl Display) -> ! {
     eprintln!("{}", message);
@@ -35,7 +32,7 @@ pub fn copy_many(sources: &[PathBuf], dest: &Path) {
     });
 }
 
-fn copy_file_impl(source: &Path, dest: &Path) -> Result<(), fs::Error>  {
+fn copy_file_impl(source: &Path, dest: &Path) -> Result<(), fs::Error> {
     let metadata = fs::symlink_metadata(source)?;
     let file_type = metadata.file_type();
     if file_type.is_symlink() {
@@ -60,22 +57,5 @@ fn copy_file_impl(source: &Path, dest: &Path) -> Result<(), fs::Error>  {
 pub fn copy_file(source: &Path, dest: &Path) {
     if let Err(err) = copy_file_impl(source, dest) {
         eprintln!("{}", err);
-    }
-}
-
-pub fn normalize_path(path: String) -> io::Result<PathBuf> {
-    let mut path = PathBuf::from(path);
-    let file_name = path.file_name().map(OsStr::to_owned);
-    path.pop();
-    let directory = (if path.components().count() == 0 {
-        env::current_dir()
-    } else {
-        Ok(path)
-    })?
-    .canonicalize()?;
-    if let Some(file_name) = file_name {
-        Ok(directory.join(file_name))
-    } else {
-        Ok(directory)
     }
 }

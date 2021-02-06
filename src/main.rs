@@ -1,7 +1,6 @@
-use fcp::{copy_file, copy_many, fatal, normalize_path};
+use fcp::{copy_file, copy_many, fatal};
 use std::env;
 use std::path::PathBuf;
-use std::string::ToString;
 
 static HELP: &str = "\
 fcp
@@ -14,11 +13,11 @@ USAGE:
     Copy each SOURCE into DESTINATION_DIRECTORY";
 
 fn main() {
-    let args: Vec<_> = env::args().skip(1).collect();
+    let args: Box<_> = env::args().skip(1).collect();
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
         fatal(HELP);
     }
-    let args = normalize_args(args);
+    let args: Box<_> = args.iter().map(PathBuf::from).collect();
     match args.len() {
         0 | 1 => fatal("Please provide at least two arguments"),
         2 => copy_file(args.first().unwrap(), args.last().unwrap()),
@@ -27,21 +26,4 @@ fn main() {
             copy_many(sources, dest);
         }
     }
-}
-
-fn normalize_args(args: Vec<String>) -> Vec<PathBuf> {
-    let (args, errors): (Vec<_>, Vec<_>) = args
-        .into_iter()
-        .map(normalize_path)
-        .partition(Result::is_ok);
-    if !errors.is_empty() {
-        fatal(
-            errors
-                .into_iter()
-                .map(|error| error.unwrap_err().to_string())
-                .collect::<Vec<_>>()
-                .join("\n"),
-        );
-    }
-    args.into_iter().map(Result::unwrap).collect()
 }
