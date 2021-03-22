@@ -71,3 +71,15 @@ pub fn copy_file(source: &Path, dest: &Path) {
         eprintln!("{}", err);
     }
 }
+
+pub fn fcp(args: Box<[String]>) {
+    let args: Box<_> = args.iter().map(PathBuf::from).collect();
+    match args.len() {
+        0 | 1 => fatal("Please provide at least two arguments"),
+        2 => copy_file(args.first().unwrap(), args.last().unwrap()),
+        _ => {
+            let (dest, sources) = args.split_last().unwrap();
+            copy_many(sources, dest);
+        }
+    }
+}
