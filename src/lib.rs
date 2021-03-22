@@ -1,6 +1,7 @@
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::fmt::Display;
-use std::os::unix::fs::PermissionsExt;
+use std::io;
+use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -25,7 +26,7 @@ pub fn copy_many(sources: &[PathBuf], dest: &Path) {
     sources.into_par_iter().for_each(|source| {
         let file_name = match source.file_name() {
             Some(file_name) => file_name,
-            None => return eprintln!("{}: {}", source.display(), "file path cannot end with .."),
+            None => return eprintln!("{}: invalid file path", source.display()),
         };
         let dest = dest.join(file_name);
         copy_file(&source, &dest);
@@ -36,8 +37,7 @@ fn copy_file_impl(source: &Path, dest: &Path) -> Result<(), fs::Error> {
     let metadata = fs::symlink_metadata(source)?;
     let file_type = metadata.file_type();
     if file_type.is_symlink() {
-        let link = fs::read_link(source)?;
-        fs::symlink(link, dest)?;
+        fs::symlink(fs::read_link(source)?, dest)?;
     } else if file_type.is_dir() {
         fs::create_dir(dest, metadata.permissions().mode())?;
         fs::read_dir(source)?
@@ -47,6 +47,18 @@ fn copy_file_impl(source: &Path, dest: &Path) -> Result<(), fs::Error> {
                 Ok(entry) => copy_file(&entry.path(), &dest.join(entry.file_name())),
                 Err(err) => eprintln!("{}", err),
             });
+    } else if file_type.is_fifo() {
+        fs::mkfifo(dest, metadata.permissions())?;
+    } else if file_type.is_socket() {
+        return Err(fs::Error::new(format!(
+            "{}: {}",
+            source.display(),
+            "cannot copy a socket"
+        )));
+    } else if file_type.is_char_device() || file_type.is_block_device() {
+        let mut source = fs::open(source)?;
+        let mut dest = fs::create(dest, metadata.permissions().mode())?;
+        io::copy(&mut source, &mut dest)?;
     } else {
         fs::copy(source, dest)?;
     }
