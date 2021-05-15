@@ -17,33 +17,10 @@ pub fn fatal(message: impl Display) -> ! {
     process::exit(1);
 }
 
-/// Copy each file in `sources` into the directory `dest`.
-pub fn copy_many(sources: &[PathBuf], dest: &Path) {
-    let metadata = fs::symlink_metadata(&dest).map_err(fatal).unwrap();
-    if !metadata.is_dir() {
-        fatal(format!("{} is not a directory", dest.display()));
+pub fn copy_file(source: &Path, dest: &Path) {
+    if let Err(err) = copy_file_impl(source, dest) {
+        eprintln!("{}", err);
     }
-    sources.into_par_iter().for_each(|source| {
-        let file_name = match source.file_name() {
-            Some(file_name) => file_name,
-            None => return eprintln!("{}: invalid file path", source.display()),
-        };
-        let dest = dest.join(file_name);
-        copy_file(&source, &dest);
-    });
-}
-
-fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<(), fs::Error> {
-    let (source, metadata) = source;
-    fs::create_dir(dest, metadata.permissions().mode())?;
-    fs::read_dir(source)?
-        .collect::<Box<_>>()
-        .into_par_iter()
-        .for_each(|entry| match entry {
-            Ok(entry) => copy_file(&entry.path(), &dest.join(entry.file_name())),
-            Err(err) => eprintln!("{}", err),
-        });
-    Ok(())
 }
 
 fn copy_file_impl(source: &Path, dest: &Path) -> Result<(), fs::Error> {
@@ -76,10 +53,33 @@ fn copy_file_impl(source: &Path, dest: &Path) -> Result<(), fs::Error> {
     Ok(())
 }
 
-pub fn copy_file(source: &Path, dest: &Path) {
-    if let Err(err) = copy_file_impl(source, dest) {
-        eprintln!("{}", err);
+fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<(), fs::Error> {
+    let (source, metadata) = source;
+    fs::create_dir(dest, metadata.permissions().mode())?;
+    fs::read_dir(source)?
+        .collect::<Box<_>>()
+        .into_par_iter()
+        .for_each(|entry| match entry {
+            Ok(entry) => copy_file(&entry.path(), &dest.join(entry.file_name())),
+            Err(err) => eprintln!("{}", err),
+        });
+    Ok(())
+}
+
+/// Copy each file in `sources` into the directory `dest`.
+pub fn copy_many(sources: &[PathBuf], dest: &Path) {
+    let metadata = fs::symlink_metadata(&dest).map_err(fatal).unwrap();
+    if !metadata.is_dir() {
+        fatal(format!("{} is not a directory", dest.display()));
     }
+    sources.into_par_iter().for_each(|source| {
+        let file_name = match source.file_name() {
+            Some(file_name) => file_name,
+            None => return eprintln!("{}: invalid file path", source.display()),
+        };
+        let dest = dest.join(file_name);
+        copy_file(&source, &dest);
+    });
 }
 
 pub fn fcp(args: &[String]) {
