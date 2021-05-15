@@ -16,5 +16,5 @@ fn main() {
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
         fatal(HELP);
     }
-    fcp(args);
+    fcp(&args);
 }

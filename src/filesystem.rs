@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use std::error::Error as BaseError;
 use std::fmt;
 use std::fs::{self, DirBuilder, File, Metadata, OpenOptions, Permissions, ReadDir};
-use std::os::unix::fs::{self as unix, DirBuilderExt, OpenOptionsExt, PermissionsExt};
+use std::os::unix::fs::{self as unix, DirBuilderExt, FileTypeExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -59,7 +59,6 @@ macro_rules! wrap2 {
     };
 }
 
-wrap!(fs, metadata, Metadata);
 wrap!(fs, symlink_metadata, Metadata);
 wrap!(fs, read_link, PathBuf);
 wrap!(fs, read_dir, ReadDir);
@@ -96,4 +95,37 @@ pub fn mkfifo<P: AsRef<Path>>(path: P, permissions: Permissions) -> Result<(), E
     let path = path.as_ref();
     let mode = Mode::from_bits_truncate(permissions.mode().try_into()?);
     unistd::mkfifo(path, mode).map_err(make_error_message!(path))
+}
+
+#[derive(Debug)]
+pub enum FileType {
+    Regular,
+    Directory(Metadata),
+    Symlink,
+    Fifo(Metadata),
+    Socket,
+    BlockDevice(Metadata),
+    CharacterDevice(Metadata),
+}
+
+pub fn file_type(path: &Path) -> Result<FileType, Error> {
+    let metadata = symlink_metadata(path)?;
+    let file_type = metadata.file_type();
+    Ok(if file_type.is_file() {
+        FileType::Regular
+    } else if file_type.is_dir() {
+        FileType::Directory(metadata)
+    } else if file_type.is_symlink() {
+        FileType::Symlink
+    } else if file_type.is_fifo() {
+        FileType::Fifo(metadata)
+    } else if file_type.is_socket() {
+        FileType::Socket
+    } else if file_type.is_char_device() {
+        FileType::CharacterDevice(metadata)
+    } else if file_type.is_block_device() {
+        FileType::BlockDevice(metadata)
+    } else {
+        unreachable!();
+    })
 }
