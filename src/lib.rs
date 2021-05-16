@@ -17,7 +17,7 @@ pub fn fatal(message: impl Display) -> ! {
     process::exit(1);
 }
 
-pub fn copy_file(source: &Path, dest: &Path) {
+fn copy_file(source: &Path, dest: &Path) {
     if let Err(err) = copy_file_impl(source, dest) {
         eprintln!("{}", err);
     }
@@ -67,7 +67,7 @@ fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<(), fs::Erro
 }
 
 /// Copy each file in `sources` into the directory `dest`.
-pub fn copy_many(sources: &[PathBuf], dest: &Path) {
+fn copy_many(sources: &[PathBuf], dest: &Path) {
     let metadata = fs::symlink_metadata(&dest).map_err(fatal).unwrap();
     if !metadata.is_dir() {
         fatal(format!("{} is not a directory", dest.display()));

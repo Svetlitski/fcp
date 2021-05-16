@@ -1,6 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use fcp::copy_file;
-use std::path::PathBuf;
+use fcp::fcp;
 use std::process::Command;
 use std::time::Duration;
 
@@ -30,8 +29,13 @@ fn bench_copies(c: &mut Criterion) {
     );
     group.bench_with_input(
         BenchmarkId::new("FCP", ""),
-        &(PathBuf::from(source), PathBuf::from(dest)),
-        |b, (source, dest)| b.iter_with_setup(|| cleanup.output(), |_| copy_file(source, dest)),
+        &(source, dest),
+        |b, (source, dest)| {
+            b.iter_with_setup(
+                || cleanup.output(),
+                |_| fcp(&[source.to_string(), dest.to_string()]),
+            )
+        },
     );
     group.finish();
 }
