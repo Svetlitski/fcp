@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::process::{Command, ExitStatus};
 
 lazy_static! {
-    static ref HYDRATED_DIR: PathBuf = PathBuf::from("fixtures/extracted");
+    static ref HYDRATED_DIR: PathBuf = PathBuf::from("fixtures/hydrated");
     static ref COPIES_DIR: PathBuf = PathBuf::from("fixtures/copies");
     static ref FIXTURES_DIR: PathBuf = PathBuf::from("fixtures");
 }
@@ -94,6 +94,10 @@ fn hydrate_file(file: FileStub) {
         | FileStub::Fifo { ref name, .. }
         | FileStub::Symlink { ref name, .. } => HYDRATED_DIR.join(name),
     };
+    // Makes this function idempotent
+    if path.exists() {
+        return;
+    }
     match file {
         FileStub::File { size, mode, .. } => {
             let mut file = fs::create(path, mode).unwrap();
@@ -133,7 +137,17 @@ fn diff(filename: &str) -> ExitStatus {
         .unwrap()
 }
 
+fn copy_fixture(filename: &str) {
+    let filename = filename.strip_suffix(".json").unwrap();
+    fcp(&[
+        HYDRATED_DIR.join(filename).to_str().unwrap().to_string(),
+        COPIES_DIR.join(filename).to_str().unwrap().to_string(),
+    ]);
+}
+
 #[test]
 fn regular_file() {
-    hydrate_fixture("test.json")
+    hydrate_fixture("regular_file.json");
+    copy_fixture("regular_file.json");
+    assert!(diff("regular_file.json").success());
 }
