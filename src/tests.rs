@@ -1,5 +1,6 @@
 use crate::filesystem as fs;
 use crate::{fatal, fcp};
+use lazy_static::lazy_static;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -8,12 +9,13 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
-use lazy_static::lazy_static;
-
+use std::path::PathBuf;
+use std::process::{Command, ExitStatus};
 
 lazy_static! {
-    static ref OUTPUT_DIR: PathBuf = PathBuf::from("fixtures/extracted");
+    static ref HYDRATED_DIR: PathBuf = PathBuf::from("fixtures/extracted");
+    static ref COPIES_DIR: PathBuf = PathBuf::from("fixtures/copies");
+    static ref FIXTURES_DIR: PathBuf = PathBuf::from("fixtures");
 }
 
 fn deserialize_mode<'de, D>(deserializer: D) -> Result<u32, D::Error>
@@ -78,17 +80,23 @@ enum FileStub {
 }
 
 fn hydrate_fixture(filename: &str) {
-    let files =
-        serde_json::from_reader::<File, Vec<FileStub>>(fs::open(filename).unwrap()).unwrap();
-    println!("{:?}", files);
+    let files = serde_json::from_reader::<File, Vec<FileStub>>(
+        fs::open(FIXTURES_DIR.join(filename)).unwrap(),
+    )
+    .unwrap();
     files.into_par_iter().for_each(hydrate_file);
 }
 
 fn hydrate_file(file: FileStub) {
-
+    let path = match file {
+        FileStub::Directory { ref name, .. }
+        | FileStub::File { ref name, .. }
+        | FileStub::Fifo { ref name, .. }
+        | FileStub::Symlink { ref name, .. } => HYDRATED_DIR.join(name),
+    };
     match file {
-        FileStub::File { name, size, mode } => {
-            let mut file = fs::create(OUTPUT_DIR.join(name), mode).unwrap();
+        FileStub::File { size, mode, .. } => {
+            let mut file = fs::create(path, mode).unwrap();
             let metadata = file.metadata().unwrap();
             if metadata.len() < size {
                 file.seek(SeekFrom::End(0)).unwrap();
@@ -104,23 +112,28 @@ fn hydrate_file(file: FileStub) {
                 }
             }
         }
-        FileStub::Symlink { name, target, .. } => fs::symlink(OUTPUT_DIR.join(target), OUTPUT_DIR.join(name)).unwrap(),
-        FileStub::Fifo { name, mode, .. } => {
-            fs::mkfifo(OUTPUT_DIR.join(name), PermissionsExt::from_mode(mode)).unwrap()
-        }
-        FileStub::Directory {
-            name,
-            mode,
-            contents,
-            ..
-        } => {
-            fs::create_dir(OUTPUT_DIR.join(name), mode).unwrap();
+        FileStub::Symlink { target, .. } => fs::symlink(HYDRATED_DIR.join(target), path).unwrap(),
+        FileStub::Fifo { mode, .. } => fs::mkfifo(path, PermissionsExt::from_mode(mode)).unwrap(),
+        FileStub::Directory { mode, contents, .. } => {
+            fs::create_dir(path, mode).unwrap();
             contents.into_par_iter().for_each(hydrate_file);
         }
     }
 }
 
+fn diff(filename: &str) -> ExitStatus {
+    let filename = filename.strip_suffix(".json").unwrap();
+    Command::new("diff")
+        .args(&[
+            "-r",
+            HYDRATED_DIR.join(filename).to_str().unwrap(),
+            COPIES_DIR.join(filename).to_str().unwrap(),
+        ])
+        .status()
+        .unwrap()
+}
+
 #[test]
 fn regular_file() {
-    hydrate_fixture("fixtures/test.json")
+    hydrate_fixture("test.json")
 }
