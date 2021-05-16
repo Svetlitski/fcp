@@ -1,5 +1,5 @@
 use crate::filesystem as fs;
-use crate::{fatal, fcp};
+use crate::fcp;
 use lazy_static::lazy_static;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::de::{self, Visitor};
@@ -150,4 +150,11 @@ fn regular_file() {
     hydrate_fixture("regular_file.json");
     copy_fixture("regular_file.json");
     assert!(diff("regular_file.json").success());
+}
+
+#[test]
+fn simple_directory() {
+    hydrate_fixture("simple_directory.json");
+    copy_fixture("simple_directory.json");
+    assert!(diff("simple_directory.json").success());
 }
