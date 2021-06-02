@@ -33,7 +33,9 @@ impl Error {
 }
 
 macro_rules! wrap {
-    ($namespace:ident, $function:ident, $payload:ty) => {
+    ($(#[$attributes:meta])*
+     $namespace:ident, $function:ident, $payload:ty) => {
+        $(#[$attributes])*
         pub fn $function<P: AsRef<Path>>(path: P) -> Result<$payload, Error> {
             $namespace::$function(path.as_ref())
                 .map_err(|err| Error::new(format!("{}: {}", path.as_ref().display(), err)))
@@ -62,6 +64,13 @@ macro_rules! wrap2 {
 wrap!(fs, symlink_metadata, Metadata);
 wrap!(fs, read_link, PathBuf);
 wrap!(fs, read_dir, ReadDir);
+// This is used in tests, so we silence the dead code warning
+wrap!(
+    #[allow(dead_code)]
+    fs,
+    remove_dir_all,
+    ()
+);
 wrap!(File, open, File);
 wrap2!(symlink, unix, ());
 wrap2!(copy, fs, u64);

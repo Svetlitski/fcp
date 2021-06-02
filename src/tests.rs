@@ -1,5 +1,5 @@
-use crate::filesystem as fs;
 use crate::fcp;
+use crate::filesystem as fs;
 use lazy_static::lazy_static;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::de::{self, Visitor};
@@ -139,9 +139,11 @@ fn diff(filename: &str) -> ExitStatus {
 
 fn copy_fixture(filename: &str) {
     let filename = filename.strip_suffix(".json").unwrap();
+    let output = COPIES_DIR.join(filename);
+    let _ = fs::remove_dir_all(&output);
     fcp(&[
         HYDRATED_DIR.join(filename).to_str().unwrap().to_string(),
-        COPIES_DIR.join(filename).to_str().unwrap().to_string(),
+        output.to_str().unwrap().to_string(),
     ]);
 }
 
