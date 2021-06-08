@@ -1,9 +1,1 @@
-[
-  {"type":"directory","name":"simple_directory","mode":"0755","contents":[
-    {"type":"file","name":"simple_directory/five.txt","mode":"0644","prot":"-rw-r--r--","size":249287},
-    {"type":"file","name":"simple_directory/four.txt","mode":"0644","prot":"-rw-r--r--","size":252781},
-    {"type":"file","name":"simple_directory/one.txt","mode":"0644","prot":"-rw-r--r--","size":246007},
-    {"type":"file","name":"simple_directory/three.txt","mode":"0644","prot":"-rw-r--r--","size":278809},
-    {"type":"file","name":"simple_directory/two.txt","mode":"0644","prot":"-rw-r--r--","size":246934}
-  ]}
-]
+[{"contents": [{"mode": 420, "name": "simple_directory/1.txt", "size": 14, "type": "file"}, {"mode": 420, "name": "simple_directory/2.txt", "size": 19, "type": "file"}, {"mode": 420, "name": "simple_directory/3.txt", "size": 18, "type": "file"}], "mode": 493, "name": "simple_directory", "size": 160, "type": "directory"}]
