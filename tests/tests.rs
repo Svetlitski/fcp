@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::os::unix::fs::PermissionsExt;
+use std::str;
 use std::path::PathBuf;
 use std::process::{Command, ExitStatus, Output};
 
@@ -14,8 +15,6 @@ lazy_static! {
     static ref COPIES_DIR: PathBuf = PathBuf::from("fixtures/copies");
     static ref FIXTURES_DIR: PathBuf = PathBuf::from("fixtures");
 }
-
-static EMPTY: [u8; 0] = [];
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -95,7 +94,7 @@ fn diff(filename: &str) -> ExitStatus {
     let filename = filename.strip_suffix(".json").unwrap();
     Command::new("diff")
         .args(&[
-            "-r",
+            "-rq",
             HYDRATED_DIR.join(filename).to_str().unwrap(),
             COPIES_DIR.join(filename).to_str().unwrap(),
         ])
@@ -121,7 +120,7 @@ fn regular_file() {
     hydrate_fixture("regular_file.json");
     let result = copy_fixture("regular_file.json");
     assert!(result.status.success());
-    assert_eq!(std::str::from_utf8(&result.stderr).unwrap(), "");
+    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
     assert!(diff("regular_file.json").success());
 }
 
@@ -130,6 +129,6 @@ fn simple_directory() {
     hydrate_fixture("simple_directory.json");
     let result = copy_fixture("simple_directory.json");
     assert!(result.status.success());
-    assert_eq!(result.stderr, EMPTY);
+    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
     assert!(diff("simple_directory.json").success());
 }
