@@ -2,6 +2,7 @@ use fcp::{self, filesystem as fs};
 use lazy_static::lazy_static;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::SeekFrom;
@@ -54,8 +55,8 @@ fn hydrate_fixture(filename: &str) {
             .unwrap()
             .modified()
             .unwrap();
-        let output_modification_time = output_meta.modified().unwrap();
-        if fixture_modification_time < output_modification_time {
+        let output_creation_time = output_meta.created().unwrap();
+        if fixture_modification_time < output_creation_time {
             return; // Fixture has already been hydrated, do nothing
         }
         fs::remove_dir_all(&output_path).unwrap();
@@ -117,7 +118,11 @@ fn copy_fixture(filename: &str) -> Output {
     let filename = filename.strip_suffix(".json").unwrap();
     let output = COPIES_DIR.join(filename);
     let _ = fs::remove_dir_all(&output);
-    Command::new("./target/debug/fcp")
+    let mut executable = env::current_exe().unwrap();
+    executable.pop();
+    executable.pop();
+    executable.push(format!("fcp{}", env::consts::EXE_SUFFIX));
+    Command::new(executable)
         .args(&[
             HYDRATED_DIR.join(filename).to_str().unwrap().to_string(),
             output.to_str().unwrap().to_string(),
