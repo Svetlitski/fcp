@@ -148,7 +148,7 @@ macro_rules! make_test {
             hydrate_fixture(fixture_file);
             let result = copy_fixture(fixture_file);
             assert!(result.status.success());
-            assert!(str::from_utf8(&result.stderr).unwrap().is_empty());
+            assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
             assert!(diff(fixture_file).success());
         }
     };
