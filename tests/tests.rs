@@ -45,10 +45,24 @@ enum FileStub {
 }
 
 fn hydrate_fixture(filename: &str) {
-    let files = serde_json::from_reader::<File, Vec<FileStub>>(
-        fs::open(FIXTURES_DIR.join(filename)).unwrap(),
-    )
-    .unwrap();
+    let fixture_path = FIXTURES_DIR.join(filename);
+    let output_path = HYDRATED_DIR.join(filename.strip_suffix(".json").unwrap());
+    // We check if the file exists like this instead of via Path::exists
+    // because we consider broken symlinks as still existing.
+    if let Ok(output_meta) = fs::symlink_metadata(&output_path) {
+        let fixture_modification_time = fs::symlink_metadata(&fixture_path)
+            .unwrap()
+            .modified()
+            .unwrap();
+        let output_modification_time = output_meta.modified().unwrap();
+        if fixture_modification_time < output_modification_time {
+            return; // Fixture has already been hydrated, do nothing
+        }
+        fs::remove_dir_all(&output_path).unwrap();
+    }
+
+    let files =
+        serde_json::from_reader::<File, Vec<FileStub>>(fs::open(&fixture_path).unwrap()).unwrap();
     files.into_par_iter().for_each(hydrate_file);
 }
 
@@ -59,10 +73,6 @@ fn hydrate_file(file: FileStub) {
         | FileStub::Fifo { ref name, .. }
         | FileStub::Symlink { ref name, .. } => HYDRATED_DIR.join(name),
     };
-    // Makes this function idempotent
-    if path.exists() {
-        return;
-    }
     match file {
         FileStub::Regular { size, mode, .. } => {
             let mut file = fs::create(path, mode).unwrap();
@@ -94,7 +104,8 @@ fn diff(filename: &str) -> ExitStatus {
     let filename = filename.strip_suffix(".json").unwrap();
     Command::new("diff")
         .args(&[
-            "-rq", "--no-dereference",
+            "-rq",
+            "--no-dereference",
             HYDRATED_DIR.join(filename).to_str().unwrap(),
             COPIES_DIR.join(filename).to_str().unwrap(),
         ])
