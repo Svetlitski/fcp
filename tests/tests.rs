@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::os::unix::fs::PermissionsExt;
+use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
 use std::process::{Command, ExitStatus, Output};
 use std::str;
@@ -43,6 +44,10 @@ enum FileStub {
         size: u64,
         mode: u32,
     },
+    Socket {
+        name: String,
+        mode: u32,
+    },
 }
 
 fn hydrate_fixture(filename: &str) {
@@ -72,7 +77,8 @@ fn hydrate_file(file: FileStub) {
         FileStub::Directory { ref name, .. }
         | FileStub::Regular { ref name, .. }
         | FileStub::Fifo { ref name, .. }
-        | FileStub::Symlink { ref name, .. } => HYDRATED_DIR.join(name),
+        | FileStub::Symlink { ref name, .. }
+        | FileStub::Socket { ref name, .. } => HYDRATED_DIR.join(name),
     };
     match file {
         FileStub::Regular { size, mode, .. } => {
@@ -97,6 +103,9 @@ fn hydrate_file(file: FileStub) {
         FileStub::Directory { mode, contents, .. } => {
             fs::create_dir(path, mode).unwrap();
             contents.into_par_iter().for_each(hydrate_file);
+        }
+        FileStub::Socket { .. } => {
+            UnixListener::bind(path).unwrap();
         }
     }
 }
@@ -139,7 +148,7 @@ macro_rules! make_test {
             hydrate_fixture(fixture_file);
             let result = copy_fixture(fixture_file);
             assert!(result.status.success());
-            assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
+            assert!(str::from_utf8(&result.stderr).unwrap().is_empty());
             assert!(diff(fixture_file).success());
         }
     };
@@ -148,3 +157,14 @@ macro_rules! make_test {
 make_test!(regular_file);
 make_test!(simple_directory);
 make_test!(symlink);
+
+#[test]
+fn socket() {
+    let fixture_file = "socket.json";
+    hydrate_fixture(fixture_file);
+    let result = copy_fixture(fixture_file);
+    assert!(!result.status.success());
+    assert!(str::from_utf8(&result.stderr)
+        .unwrap()
+        .contains("sockets cannot be copied"));
+}
