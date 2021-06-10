@@ -1,5 +1,4 @@
-use crate::fcp;
-use crate::filesystem as fs;
+use fcp::{self, filesystem as fs};
 use lazy_static::lazy_static;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
@@ -8,13 +7,15 @@ use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
-use std::process::{Command, ExitStatus};
+use std::process::{Command, ExitStatus, Output};
 
 lazy_static! {
     static ref HYDRATED_DIR: PathBuf = PathBuf::from("fixtures/hydrated");
     static ref COPIES_DIR: PathBuf = PathBuf::from("fixtures/copies");
     static ref FIXTURES_DIR: PathBuf = PathBuf::from("fixtures");
 }
+
+static EMPTY: [u8; 0] = [];
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
@@ -102,26 +103,33 @@ fn diff(filename: &str) -> ExitStatus {
         .unwrap()
 }
 
-fn copy_fixture(filename: &str) {
+fn copy_fixture(filename: &str) -> Output {
     let filename = filename.strip_suffix(".json").unwrap();
     let output = COPIES_DIR.join(filename);
     let _ = fs::remove_dir_all(&output);
-    fcp(&[
-        HYDRATED_DIR.join(filename).to_str().unwrap().to_string(),
-        output.to_str().unwrap().to_string(),
-    ]);
+    Command::new("./target/debug/fcp")
+        .args(&[
+            HYDRATED_DIR.join(filename).to_str().unwrap().to_string(),
+            output.to_str().unwrap().to_string(),
+        ])
+        .output()
+        .unwrap()
 }
 
 #[test]
 fn regular_file() {
     hydrate_fixture("regular_file.json");
-    copy_fixture("regular_file.json");
+    let result = copy_fixture("regular_file.json");
+    assert!(result.status.success());
+    assert_eq!(std::str::from_utf8(&result.stderr).unwrap(), "");
     assert!(diff("regular_file.json").success());
 }
 
 #[test]
 fn simple_directory() {
     hydrate_fixture("simple_directory.json");
-    copy_fixture("simple_directory.json");
+    let result = copy_fixture("simple_directory.json");
+    assert!(result.status.success());
+    assert_eq!(result.stderr, EMPTY);
     assert!(diff("simple_directory.json").success());
 }

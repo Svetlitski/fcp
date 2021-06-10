@@ -1,5 +1,6 @@
 use fcp::{fatal, fcp};
 use std::env;
+use std::process;
 
 static HELP: &str = "\
 fcp
@@ -16,5 +17,5 @@ fn main() {
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
         fatal(HELP);
     }
-    fcp(&args);
+    process::exit(fcp(&args) as i32);
 }
