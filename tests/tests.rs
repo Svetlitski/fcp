@@ -67,9 +67,9 @@ fn hydrate_fixture(filename: &str) {
         fs::remove_dir_all(&output_path).unwrap();
     }
 
-    let files =
-        serde_json::from_reader::<File, Vec<FileStub>>(fs::open(&fixture_path).unwrap()).unwrap();
-    files.into_par_iter().for_each(hydrate_file);
+    let mut files = serde_json::Deserializer::from_reader(fs::open(&fixture_path).unwrap());
+    files.disable_recursion_limit();
+    files.into_iter::<Vec<FileStub>>().flat_map(Result::unwrap).for_each(hydrate_file);
 }
 
 fn hydrate_file(file: FileStub) {
@@ -155,8 +155,10 @@ macro_rules! make_test {
 }
 
 make_test!(regular_file);
-make_test!(simple_directory);
 make_test!(symlink);
+make_test!(empty_directory);
+make_test!(simple_directory);
+make_test!(deep_directory);
 
 #[test]
 fn socket() {
