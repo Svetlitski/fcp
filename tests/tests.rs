@@ -6,9 +6,9 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::os::unix::fs::PermissionsExt;
-use std::str;
 use std::path::PathBuf;
 use std::process::{Command, ExitStatus, Output};
+use std::str;
 
 lazy_static! {
     static ref HYDRATED_DIR: PathBuf = PathBuf::from("fixtures/hydrated");
@@ -94,7 +94,7 @@ fn diff(filename: &str) -> ExitStatus {
     let filename = filename.strip_suffix(".json").unwrap();
     Command::new("diff")
         .args(&[
-            "-rq",
+            "-rq", "--no-dereference",
             HYDRATED_DIR.join(filename).to_str().unwrap(),
             COPIES_DIR.join(filename).to_str().unwrap(),
         ])
@@ -115,20 +115,20 @@ fn copy_fixture(filename: &str) -> Output {
         .unwrap()
 }
 
-#[test]
-fn regular_file() {
-    hydrate_fixture("regular_file.json");
-    let result = copy_fixture("regular_file.json");
-    assert!(result.status.success());
-    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
-    assert!(diff("regular_file.json").success());
+macro_rules! make_test {
+    ($test_name:ident) => {
+        #[test]
+        fn $test_name() {
+            let fixture_file = concat!(stringify!($test_name), ".json");
+            hydrate_fixture(fixture_file);
+            let result = copy_fixture(fixture_file);
+            assert!(result.status.success());
+            assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
+            assert!(diff(fixture_file).success());
+        }
+    };
 }
 
-#[test]
-fn simple_directory() {
-    hydrate_fixture("simple_directory.json");
-    let result = copy_fixture("simple_directory.json");
-    assert!(result.status.success());
-    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
-    assert!(diff("simple_directory.json").success());
-}
+make_test!(regular_file);
+make_test!(simple_directory);
+make_test!(symlink);
