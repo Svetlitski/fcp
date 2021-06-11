@@ -15,6 +15,12 @@ pub fn fatal(message: impl Display) -> ! {
     process::exit(1);
 }
 
+// The boolean returned signifies whether an error occurred (`true`) or not (`false`). The purpose
+// of returning just a boolean instead of the underlying error itself is that we want to display
+// the error to the user as soon as it occurs (as this makes for a better user-experience during
+// long-running jobs) as opposed to propagating it upwards and printing all errors at the end.
+// However, at the end of the process we still need to know whether or not an error occurred at any
+// point in order to set the exit code appropriately.
 fn copy_file(source: &Path, dest: &Path) -> bool {
     match copy_file_impl(source, dest) {
         Err(err) => {
@@ -30,9 +36,7 @@ fn copy_file_impl(source: &Path, dest: &Path) -> Result<bool, fs::Error> {
         FileType::Regular => {
             fs::copy(source, dest)?;
         }
-        FileType::Directory(metadata) => {
-            return copy_directory((source, metadata), dest);
-        }
+        FileType::Directory(metadata) => return copy_directory((source, metadata), dest),
         FileType::Symlink => {
             fs::symlink(fs::read_link(source)?, dest)?;
         }
