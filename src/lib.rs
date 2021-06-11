@@ -59,10 +59,6 @@ fn copy_file_impl(source: &Path, dest: &Path) -> Result<bool, fs::Error> {
     Ok(false)
 }
 
-fn identity(item: bool) -> bool {
-    item
-}
-
 fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<bool, fs::Error> {
     let (source, metadata) = source;
     fs::create_dir(dest, metadata.permissions().mode())?;
@@ -76,7 +72,7 @@ fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<bool, fs::Er
                 true
             }
         })
-        .any(identity))
+        .reduce(|| false, |a, b| a | b))
 }
 
 /// Copy each file in `sources` into the directory `dest`.
@@ -98,7 +94,7 @@ fn copy_many(sources: &[PathBuf], dest: &Path) -> bool {
             let dest = dest.join(file_name);
             copy_file(&source, &dest)
         })
-        .any(identity)
+        .reduce(|| false, |a, b| a | b)
 }
 
 pub fn fcp(args: &[String]) -> bool {
