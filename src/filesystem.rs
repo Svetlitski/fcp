@@ -1,3 +1,7 @@
+//! A collection of utilities augmenting the standard library's filesystem capabilities, extending
+//! them to cover the full gamut of POSIX file types, and wrapping them in order to improve the
+//! usefulness of error messages by providing additional context.
+
 use nix::sys::stat::Mode;
 use nix::unistd;
 use std::convert::TryInto;
@@ -64,7 +68,7 @@ macro_rules! wrap2 {
 wrap!(fs, symlink_metadata, Metadata);
 wrap!(fs, read_link, PathBuf);
 wrap!(fs, read_dir, ReadDir);
-// The remove_* functions are in tests, so we silence the dead code warning
+// The remove_* functions are used in tests, so we silence the dead code warning
 wrap!(
     #[allow(dead_code)]
     fs,

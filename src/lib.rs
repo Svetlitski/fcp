@@ -104,7 +104,7 @@ fn copy_many(sources: &[PathBuf], dest: &Path) -> bool {
 pub fn fcp(args: &[String]) -> bool {
     let args: Box<_> = args.iter().map(PathBuf::from).collect();
     match args.len() {
-        0 | 1 => fatal("Please provide at least two arguments"),
+        0 | 1 => fatal("Please provide at least two arguments (run 'fcp --help' for details)"),
         2 => copy_file(args.first().unwrap(), args.last().unwrap()),
         _ => {
             let (dest, sources) = args.split_last().unwrap();
