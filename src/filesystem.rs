@@ -64,11 +64,17 @@ macro_rules! wrap2 {
 wrap!(fs, symlink_metadata, Metadata);
 wrap!(fs, read_link, PathBuf);
 wrap!(fs, read_dir, ReadDir);
-// This is used in tests, so we silence the dead code warning
+// The remove_* functions are in tests, so we silence the dead code warning
 wrap!(
     #[allow(dead_code)]
     fs,
     remove_dir_all,
+    ()
+);
+wrap!(
+    #[allow(dead_code)]
+    fs,
+    remove_file,
     ()
 );
 wrap!(File, open, File);

@@ -7,7 +7,7 @@ use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixListener;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Output};
 use std::str;
 
@@ -46,6 +46,17 @@ struct FileStub {
     kind: FileKind,
 }
 
+fn remove(path: &Path) {
+    if let Ok(metadata) = fs::symlink_metadata(path) {
+        if metadata.is_dir() {
+            fs::remove_dir_all(path)
+        } else {
+            fs::remove_file(path)
+        }
+        .unwrap();
+    }
+}
+
 fn hydrate_fixture(filename: &str) {
     let fixture_path = FIXTURES_DIR.join(filename);
     let output_path = HYDRATED_DIR.join(filename.strip_suffix(".json").unwrap());
@@ -60,7 +71,7 @@ fn hydrate_fixture(filename: &str) {
         if fixture_modification_time < output_creation_time {
             return; // Fixture has already been hydrated, do nothing
         }
-        fs::remove_dir_all(&output_path).unwrap();
+        remove(&output_path);
     }
 
     let mut files = serde_json::Deserializer::from_reader(fs::open(&fixture_path).unwrap());
@@ -120,7 +131,7 @@ fn diff(filename: &str) -> ExitStatus {
 fn copy_fixture(filename: &str) -> Output {
     let filename = filename.strip_suffix(".json").unwrap();
     let output = COPIES_DIR.join(filename);
-    let _ = fs::remove_dir_all(&output);
+    remove(&output);
     let mut executable = env::current_exe().unwrap();
     executable.pop();
     executable.pop();
@@ -163,4 +174,15 @@ fn socket() {
     assert!(str::from_utf8(&result.stderr)
         .unwrap()
         .contains("sockets cannot be copied"));
+}
+
+#[test]
+fn fifo() {
+    let fixture_file = "fifo.json";
+    hydrate_fixture(fixture_file);
+    let result = copy_fixture(fixture_file);
+    assert!(result.status.success());
+    let file_type =
+        fs::file_type(&COPIES_DIR.join(fixture_file.strip_suffix(".json").unwrap())).unwrap();
+    assert!(matches!(file_type, fs::FileType::Fifo(..)))
 }
