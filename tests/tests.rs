@@ -1,9 +1,8 @@
 use fcp::{self, filesystem as fs};
 use lazy_static::lazy_static;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::env;
-use std::fs::File;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::os::unix::fs::PermissionsExt;
@@ -18,36 +17,33 @@ lazy_static! {
     static ref FIXTURES_DIR: PathBuf = PathBuf::from("fixtures");
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
-enum FileStub {
+enum FileKind {
     #[serde(rename = "file")]
     Regular {
-        name: String,
         size: u64,
-        mode: u32,
     },
     #[serde(rename = "link")]
     Symlink {
-        name: String,
         target: PathBuf,
-        mode: u32,
     },
     Directory {
-        name: String,
         contents: Vec<FileStub>,
-        mode: u32,
     },
     Fifo {
-        name: String,
         size: u64,
-        mode: u32,
     },
-    Socket {
-        name: String,
-        mode: u32,
-    },
+    Socket {},
+}
+
+#[derive(Debug, Deserialize)]
+struct FileStub {
+    name: String,
+    mode: u32,
+    #[serde(flatten)]
+    kind: FileKind,
 }
 
 fn hydrate_fixture(filename: &str) {
@@ -69,19 +65,17 @@ fn hydrate_fixture(filename: &str) {
 
     let mut files = serde_json::Deserializer::from_reader(fs::open(&fixture_path).unwrap());
     files.disable_recursion_limit();
-    files.into_iter::<Vec<FileStub>>().flat_map(Result::unwrap).for_each(hydrate_file);
+    files
+        .into_iter::<Vec<FileStub>>()
+        .flat_map(Result::unwrap)
+        .for_each(hydrate_file);
 }
 
 fn hydrate_file(file: FileStub) {
-    let path = match file {
-        FileStub::Directory { ref name, .. }
-        | FileStub::Regular { ref name, .. }
-        | FileStub::Fifo { ref name, .. }
-        | FileStub::Symlink { ref name, .. }
-        | FileStub::Socket { ref name, .. } => HYDRATED_DIR.join(name),
-    };
-    match file {
-        FileStub::Regular { size, mode, .. } => {
+    let path = HYDRATED_DIR.join(file.name);
+    let FileStub { mode, .. } = file;
+    match file.kind {
+        FileKind::Regular { size } => {
             let mut file = fs::create(path, mode).unwrap();
             let metadata = file.metadata().unwrap();
             if metadata.len() < size {
@@ -98,13 +92,13 @@ fn hydrate_file(file: FileStub) {
                 }
             }
         }
-        FileStub::Symlink { target, .. } => fs::symlink(HYDRATED_DIR.join(target), path).unwrap(),
-        FileStub::Fifo { mode, .. } => fs::mkfifo(path, PermissionsExt::from_mode(mode)).unwrap(),
-        FileStub::Directory { mode, contents, .. } => {
+        FileKind::Symlink { target } => fs::symlink(HYDRATED_DIR.join(target), path).unwrap(),
+        FileKind::Fifo { .. } => fs::mkfifo(path, PermissionsExt::from_mode(mode)).unwrap(),
+        FileKind::Directory { contents } => {
             fs::create_dir(path, mode).unwrap();
             contents.into_par_iter().for_each(hydrate_file);
         }
-        FileStub::Socket { .. } => {
+        FileKind::Socket {} => {
             UnixListener::bind(path).unwrap();
         }
     }
