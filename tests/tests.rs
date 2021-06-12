@@ -157,8 +157,8 @@ fn copy_fixture(filename: &str) -> Output {
     remove(&output);
     Command::new(fcp_executable_path())
         .args(&[
-            HYDRATED_DIR.join(filename).to_str().unwrap().to_string(),
-            output.to_str().unwrap().to_string(),
+            HYDRATED_DIR.join(filename).to_str().unwrap(),
+            output.to_str().unwrap(),
         ])
         .output()
         .unwrap()
@@ -223,9 +223,9 @@ fn character_device() {
     let contents = "Hello world\r";
     let result = Command::new("tests/character_device.exp")
         .args(&[
-            fcp_executable_path().to_str().unwrap().to_string(),
-            output_path.to_str().unwrap().to_string(),
-            contents.to_string(),
+            fcp_executable_path().to_str().unwrap(),
+            output_path.to_str().unwrap(),
+            contents,
         ])
         .output()
         .unwrap();
