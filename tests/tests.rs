@@ -10,11 +10,26 @@ use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Output};
 use std::str;
+use std::sync::Once;
 
 lazy_static! {
-    static ref HYDRATED_DIR: PathBuf = PathBuf::from("fixtures/hydrated");
-    static ref COPIES_DIR: PathBuf = PathBuf::from("fixtures/copies");
     static ref FIXTURES_DIR: PathBuf = PathBuf::from("fixtures");
+    static ref HYDRATED_DIR: PathBuf = FIXTURES_DIR.join("hydrated");
+    static ref COPIES_DIR: PathBuf = FIXTURES_DIR.join("copies");
+}
+
+static INIT: Once = Once::new();
+
+/// Must be called at the beginning of each test case
+pub fn initialize() {
+    INIT.call_once(|| {
+        if !HYDRATED_DIR.exists() {
+            fs::create_dir(&*HYDRATED_DIR, 0o777).unwrap();
+        }
+        if !COPIES_DIR.exists() {
+            fs::create_dir(&*COPIES_DIR, 0o777).unwrap();
+        }
+    });
 }
 
 #[derive(Debug, Deserialize)]
@@ -155,6 +170,7 @@ macro_rules! make_test {
         #[test]
         $(#[$attributes])*
         fn $test_name() {
+            initialize();
             let fixture_file = concat!(stringify!($test_name), ".json");
             hydrate_fixture(fixture_file);
             let result = copy_fixture(fixture_file);
@@ -177,6 +193,7 @@ make_test!(
 
 #[test]
 fn socket() {
+    initialize();
     let fixture_file = "socket.json";
     hydrate_fixture(fixture_file);
     let result = copy_fixture(fixture_file);
@@ -188,6 +205,7 @@ fn socket() {
 
 #[test]
 fn fifo() {
+    initialize();
     let fixture_file = "fifo.json";
     hydrate_fixture(fixture_file);
     let result = copy_fixture(fixture_file);
@@ -199,6 +217,7 @@ fn fifo() {
 
 #[test]
 fn character_device() {
+    initialize();
     let output_path = COPIES_DIR.join("character_device");
     remove(&output_path);
     let contents = "Hello world\r";
@@ -224,6 +243,7 @@ fn character_device() {
 
 #[test]
 fn too_few_arguments() {
+    initialize();
     let mut result = Command::new(fcp_executable_path()).output().unwrap();
     assert!(!result.status.success());
     result = Command::new(fcp_executable_path())
@@ -235,6 +255,7 @@ fn too_few_arguments() {
 
 #[test]
 fn source_does_not_exist() {
+    initialize();
     let destination = COPIES_DIR.join("destination");
     let source = "nonexistent_source";
     remove(&destination);
@@ -253,6 +274,7 @@ fn source_does_not_exist() {
 // to ensure that the error in copying two.txt is reported, but that
 // the other files are still copied successfully.
 fn partial_directory() {
+    initialize();
     let fixture_file = "partial_directory.json";
     hydrate_fixture(fixture_file);
     let mut result = copy_fixture(fixture_file);
@@ -283,6 +305,7 @@ fn partial_directory() {
 
 #[test]
 fn copy_into() {
+    initialize();
     let empty_path = COPIES_DIR.join("empty");
     let temp_dir_path = COPIES_DIR.join("temp");
     remove(&empty_path);
@@ -303,6 +326,7 @@ fn copy_into() {
 
 #[test]
 fn copy_many_into() {
+    initialize();
     let empty_names = ["empty1", "empty2", "empty3"];
     let empty_paths = empty_names
         .iter()
