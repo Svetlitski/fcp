@@ -228,6 +228,20 @@ fn too_few_arguments() {
 }
 
 #[test]
+fn source_does_not_exist() {
+    let destination = COPIES_DIR.join("destination");
+    let source = "nonexistent_source";
+    remove(&destination);
+    let result = Command::new(fcp_executable_path())
+        .args(&[source, destination.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!result.status.success());
+    assert!(str::from_utf8(&result.stderr).unwrap().contains(source));
+    assert!(!destination.exists());
+}
+
+#[test]
 // A directory containing one.txt, two.txt, and three.txt
 // where two.txt is inaccessible due to its permissions. We want
 // to ensure that the error in copying two.txt is reported, but that
