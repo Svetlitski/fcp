@@ -3,6 +3,11 @@ name = "fcp"
 version = "0.1.0"
 authors = ["Kevin Svetlitski <kevin_svetlitski@berkeley.edu>"]
 edition = "2018"
+repository = "https://github.com/Svetlitski/fcp"
+license-file = "LICENSE"
+description = "A significantly faster alternative to the classic Unix cp(1) command"
+keywords = ["copy", "unix", "shell", "utility", "fast"]
+categories = ["command-line-utilities", "filesystem"]
 
 [dependencies]
 nix = "0.21.0"
