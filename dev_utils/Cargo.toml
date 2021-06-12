@@ -1,0 +1,12 @@
+[package]
+name = "dev_utils"
+version = "0.1.0"
+edition = "2018"
+publish = false
+
+[dependencies]
+fcp = { path = "../" }
+rayon = "1.5.1"
+serde = { version = "1.0.126", features = ["derive"] }
+serde_json = { version = "1.0.64", features = ["unbounded_depth"] }
+lazy_static = "1.4.0"
