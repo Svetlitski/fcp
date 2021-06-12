@@ -150,8 +150,10 @@ fn copy_fixture(filename: &str) -> Output {
 }
 
 macro_rules! make_test {
-    ($test_name:ident) => {
+    ($(#[$attributes:meta])*
+     $test_name:ident) => {
         #[test]
+        $(#[$attributes])*
         fn $test_name() {
             let fixture_file = concat!(stringify!($test_name), ".json");
             hydrate_fixture(fixture_file);
@@ -168,6 +170,10 @@ make_test!(symlink);
 make_test!(empty_directory);
 make_test!(simple_directory);
 make_test!(deep_directory);
+make_test!(
+    #[ignore]
+    linux
+);
 
 #[test]
 fn socket() {
