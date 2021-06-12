@@ -1,0 +1,15 @@
+#!/usr/bin/expect -f
+
+set timeout -1
+
+spawn /bin/sh
+
+set executable  [lindex $argv 0];
+set output_path [lindex $argv 1];
+set contents    [lindex $argv 2];
+
+send -- "$executable \$(tty) $output_path\r"
+send -- "$contents\x04\x04"
+send -- "exit\r"
+
+expect eof

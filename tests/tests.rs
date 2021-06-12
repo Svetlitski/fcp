@@ -128,15 +128,19 @@ fn diff(filename: &str) -> ExitStatus {
         .unwrap()
 }
 
-fn copy_fixture(filename: &str) -> Output {
-    let filename = filename.strip_suffix(".json").unwrap();
-    let output = COPIES_DIR.join(filename);
-    remove(&output);
+fn fcp_executable_path() -> PathBuf {
     let mut executable = env::current_exe().unwrap();
     executable.pop();
     executable.pop();
     executable.push(format!("fcp{}", env::consts::EXE_SUFFIX));
-    Command::new(executable)
+    executable
+}
+
+fn copy_fixture(filename: &str) -> Output {
+    let filename = filename.strip_suffix(".json").unwrap();
+    let output = COPIES_DIR.join(filename);
+    remove(&output);
+    Command::new(fcp_executable_path())
         .args(&[
             HYDRATED_DIR.join(filename).to_str().unwrap().to_string(),
             output.to_str().unwrap().to_string(),
@@ -185,4 +189,29 @@ fn fifo() {
     let file_type =
         fs::file_type(&COPIES_DIR.join(fixture_file.strip_suffix(".json").unwrap())).unwrap();
     assert!(matches!(file_type, fs::FileType::Fifo(..)))
+}
+
+#[test]
+fn character_device() {
+    let output_path = COPIES_DIR.join("character_device");
+    remove(&output_path);
+    let contents = "Hello world\r";
+    let result = Command::new("tests/character_device.exp")
+        .args(&[
+            fcp_executable_path().to_str().unwrap().to_string(),
+            output_path.to_str().unwrap().to_string(),
+            contents.to_string(),
+        ])
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
+    assert!(output_path.exists());
+    let mut output_file = fs::open(output_path).unwrap();
+    let mut output_contents = Vec::with_capacity(contents.len());
+    output_file.read_to_end(&mut output_contents).unwrap();
+    assert_eq!(
+        str::from_utf8(&output_contents).unwrap(),
+        contents.replace('\r', "\n")
+    );
 }
