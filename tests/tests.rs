@@ -215,3 +215,48 @@ fn character_device() {
         contents.replace('\r', "\n")
     );
 }
+
+#[test]
+fn too_few_arguments() {
+    let mut result = Command::new(fcp_executable_path()).output().unwrap();
+    assert!(!result.status.success());
+    result = Command::new(fcp_executable_path())
+        .arg("source")
+        .output()
+        .unwrap();
+    assert!(!result.status.success());
+}
+
+#[test]
+// A directory containing one.txt, two.txt, and three.txt
+// where two.txt is inaccessible due to its permissions. We want
+// to ensure that the error in copying two.txt is reported, but that
+// the other files are still copied successfully.
+fn partial_directory() {
+    let fixture_file = "partial_directory.json";
+    hydrate_fixture(fixture_file);
+    let mut result = copy_fixture(fixture_file);
+    assert!(!result.status.success());
+    assert!(str::from_utf8(&result.stderr)
+        .unwrap()
+        .contains("partial_directory/two.txt"));
+    for file in &["one.txt", "three.txt"] {
+        result = Command::new("diff")
+            .args(&[
+                "-q",
+                HYDRATED_DIR
+                    .join("partial_directory")
+                    .join(file)
+                    .to_str()
+                    .unwrap(),
+                COPIES_DIR
+                    .join("partial_directory")
+                    .join(file)
+                    .to_str()
+                    .unwrap(),
+            ])
+            .output()
+            .unwrap();
+        assert!(result.status.success());
+    }
+}

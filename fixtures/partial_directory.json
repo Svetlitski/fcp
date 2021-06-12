@@ -1,0 +1,1 @@
+[{"contents": [{"mode": 420, "name": "partial_directory/one.txt", "size": 12, "type": "file"}, {"mode": 420, "name": "partial_directory/three.txt", "size": 12, "type": "file"}, {"mode": 0, "name": "partial_directory/two.txt", "size": 12, "type": "file"}], "mode": 493, "name": "partial_directory", "size": 160, "type": "directory"}]
