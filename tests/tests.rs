@@ -274,3 +274,49 @@ fn partial_directory() {
         assert!(result.status.success());
     }
 }
+
+#[test]
+fn copy_into() {
+    let empty_path = COPIES_DIR.join("empty");
+    let temp_dir_path = COPIES_DIR.join("temp");
+    remove(&empty_path);
+    remove(&temp_dir_path);
+    fs::create(&empty_path, 0o777).unwrap();
+    fs::create_dir(&temp_dir_path, 0o777).unwrap();
+    let result = Command::new(fcp_executable_path())
+        .args(&[
+            empty_path.to_str().unwrap(),
+            temp_dir_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
+    assert!(temp_dir_path.join("empty").exists());
+}
+
+#[test]
+fn copy_many_into() {
+    let empty_names = ["empty1", "empty2", "empty3"];
+    let empty_paths = empty_names
+        .iter()
+        .map(|filename| COPIES_DIR.join(filename))
+        .collect::<Box<_>>();
+    let temp_dir_path = COPIES_DIR.join("temp_many");
+    for path in empty_paths.iter() {
+        remove(path);
+        fs::create(path, 0o777).unwrap();
+    }
+    remove(&temp_dir_path);
+    fs::create_dir(&temp_dir_path, 0o777).unwrap();
+    let result = Command::new(fcp_executable_path())
+        .args(empty_paths.iter())
+        .arg(&temp_dir_path)
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
+    for name in &empty_names {
+        assert!(temp_dir_path.join(name).exists());
+    }
+}
