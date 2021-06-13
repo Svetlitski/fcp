@@ -9,11 +9,26 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::str;
+use std::sync::Once;
 
 lazy_static! {
     pub static ref FIXTURES_DIR: PathBuf = PathBuf::from("fixtures");
     pub static ref HYDRATED_DIR: PathBuf = FIXTURES_DIR.join("hydrated");
     pub static ref COPIES_DIR: PathBuf = FIXTURES_DIR.join("copies");
+}
+
+static INIT: Once = Once::new();
+
+/// Must be called at the beginning of each test case and benchmark
+pub fn initialize() {
+    INIT.call_once(|| {
+        if !HYDRATED_DIR.exists() {
+            fs::create_dir(&*HYDRATED_DIR, 0o777).unwrap();
+        }
+        if !COPIES_DIR.exists() {
+            fs::create_dir(&*COPIES_DIR, 0o777).unwrap();
+        }
+    });
 }
 
 #[derive(Debug, Deserialize)]

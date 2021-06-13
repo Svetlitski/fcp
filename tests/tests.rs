@@ -3,21 +3,6 @@ use fcp::{self, filesystem as fs};
 use std::io::prelude::*;
 use std::process::{Command, ExitStatus, Output};
 use std::str;
-use std::sync::Once;
-
-static INIT: Once = Once::new();
-
-/// Must be called at the beginning of each test case
-pub fn initialize() {
-    INIT.call_once(|| {
-        if !HYDRATED_DIR.exists() {
-            fs::create_dir(&*HYDRATED_DIR, 0o777).unwrap();
-        }
-        if !COPIES_DIR.exists() {
-            fs::create_dir(&*COPIES_DIR, 0o777).unwrap();
-        }
-    });
-}
 
 fn diff(filename: &str) -> ExitStatus {
     let filename = filename.strip_suffix(".json").unwrap();

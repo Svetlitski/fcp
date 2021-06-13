@@ -1,6 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use dev_utils::*;
-use fcp::filesystem as fs;
 use std::process::Command;
 use std::time::Duration;
 
@@ -21,12 +20,7 @@ fn fcp_copy_file(source: &str, dest: &str, executable_path: &str) {
 }
 
 fn bench_copies(c: &mut Criterion) {
-    if !HYDRATED_DIR.exists() {
-        fs::create_dir(&*HYDRATED_DIR, 0o777).unwrap();
-    }
-    if !COPIES_DIR.exists() {
-        fs::create_dir(&*COPIES_DIR, 0o777).unwrap();
-    }
+    initialize();
     let fixture_file = "linux.json";
     hydrate_fixture(fixture_file);
     let source_path = HYDRATED_DIR.join(fixture_file.strip_suffix(".json").unwrap());
