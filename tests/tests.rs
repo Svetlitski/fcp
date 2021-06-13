@@ -1,8 +1,6 @@
 use dev_utils::*;
 use fcp::{self, filesystem as fs};
-use std::env;
 use std::io::prelude::*;
-use std::path::PathBuf;
 use std::process::{Command, ExitStatus, Output};
 use std::str;
 use std::sync::Once;
@@ -32,14 +30,6 @@ fn diff(filename: &str) -> ExitStatus {
         ])
         .status()
         .unwrap()
-}
-
-fn fcp_executable_path() -> PathBuf {
-    let mut executable = env::current_exe().unwrap();
-    executable.pop();
-    executable.pop();
-    executable.push(format!("fcp{}", env::consts::EXE_SUFFIX));
-    executable
 }
 
 fn copy_fixture(filename: &str) -> Output {

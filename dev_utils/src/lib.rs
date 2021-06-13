@@ -2,6 +2,7 @@ use fcp::{self, filesystem as fs};
 use lazy_static::lazy_static;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::Deserialize;
+use std::env;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::os::unix::fs::PermissionsExt;
@@ -111,4 +112,12 @@ fn hydrate_file(file: FileStub) {
             UnixListener::bind(path).unwrap();
         }
     }
+}
+
+pub fn fcp_executable_path() -> PathBuf {
+    let mut executable = env::current_exe().unwrap();
+    executable.pop();
+    executable.pop();
+    executable.push(format!("fcp{}", env::consts::EXE_SUFFIX));
+    executable
 }

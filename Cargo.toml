@@ -14,7 +14,7 @@ nix = "0.21.0"
 rayon = "1.5.1"
 
 [dev-dependencies]
-criterion = "0.3.4"
+criterion = { version = "0.3.4", features = ["html_reports"]}
 dev_utils = { path = "dev_utils" }
 
 [[bench]]
