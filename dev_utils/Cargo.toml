@@ -1,7 +1,9 @@
 [package]
 name = "dev_utils"
 version = "0.1.0"
+authors = ["Kevin Svetlitski <kevin_svetlitski@berkeley.edu>"]
 edition = "2018"
+license-file = "../LICENSE"
 publish = false
 
 [dependencies]
