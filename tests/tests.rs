@@ -1,8 +1,8 @@
 use dev_utils::*;
 use fcp::{self, filesystem as fs};
 use std::io::prelude::*;
-use std::process::{Command, ExitStatus, Output};
-use std::str;
+use std::process::{Command, ExitStatus};
+use std::string::String;
 
 fn diff(filename: &str) -> ExitStatus {
     let filename = filename.strip_suffix(".json").unwrap();
@@ -17,17 +17,30 @@ fn diff(filename: &str) -> ExitStatus {
         .unwrap()
 }
 
-fn copy_fixture(filename: &str) -> Output {
+struct CommandResult {
+    stderr: String,
+    success: bool,
+}
+
+fn fcp_run(args: &[&str]) -> CommandResult {
+    let result = Command::new(fcp_executable_path())
+        .args(args)
+        .output()
+        .unwrap();
+    CommandResult {
+        stderr: String::from_utf8(result.stderr).unwrap(),
+        success: result.status.success(),
+    }
+}
+
+fn copy_fixture(filename: &str) -> CommandResult {
     let filename = filename.strip_suffix(".json").unwrap();
     let output = COPIES_DIR.join(filename);
     remove(&output);
-    Command::new(fcp_executable_path())
-        .args(&[
-            HYDRATED_DIR.join(filename).to_str().unwrap(),
-            output.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap()
+    fcp_run(&[
+        HYDRATED_DIR.join(filename).to_str().unwrap(),
+        output.to_str().unwrap(),
+    ])
 }
 
 macro_rules! make_test {
@@ -40,8 +53,8 @@ macro_rules! make_test {
             let fixture_file = concat!(stringify!($test_name), ".json");
             hydrate_fixture(fixture_file);
             let result = copy_fixture(fixture_file);
-            assert!(result.status.success());
-            assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
+            assert!(result.success);
+            assert_eq!(result.stderr, "");
             assert!(diff(fixture_file).success());
         }
     };
@@ -63,10 +76,8 @@ fn socket() {
     let fixture_file = "socket.json";
     hydrate_fixture(fixture_file);
     let result = copy_fixture(fixture_file);
-    assert!(!result.status.success());
-    assert!(str::from_utf8(&result.stderr)
-        .unwrap()
-        .contains("sockets cannot be copied"));
+    assert!(!result.success);
+    assert!(result.stderr.contains("sockets cannot be copied"));
 }
 
 #[test]
@@ -75,7 +86,7 @@ fn fifo() {
     let fixture_file = "fifo.json";
     hydrate_fixture(fixture_file);
     let result = copy_fixture(fixture_file);
-    assert!(result.status.success());
+    assert!(result.success);
     let file_type =
         fs::file_type(&COPIES_DIR.join(fixture_file.strip_suffix(".json").unwrap())).unwrap();
     assert!(matches!(file_type, fs::FileType::Fifo(..)))
@@ -96,13 +107,13 @@ fn character_device() {
         .output()
         .unwrap();
     assert!(result.status.success());
-    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
+    assert_eq!(String::from_utf8(result.stderr).unwrap(), "");
     assert!(output_path.exists());
     let mut output_file = fs::open(output_path).unwrap();
     let mut output_contents = Vec::with_capacity(contents.len());
     output_file.read_to_end(&mut output_contents).unwrap();
     assert_eq!(
-        str::from_utf8(&output_contents).unwrap(),
+        String::from_utf8(output_contents).unwrap(),
         contents.replace('\r', "\n")
     );
 }
@@ -110,13 +121,8 @@ fn character_device() {
 #[test]
 fn too_few_arguments() {
     initialize();
-    let mut result = Command::new(fcp_executable_path()).output().unwrap();
-    assert!(!result.status.success());
-    result = Command::new(fcp_executable_path())
-        .arg("source")
-        .output()
-        .unwrap();
-    assert!(!result.status.success());
+    assert!(!fcp_run(&[]).success);
+    assert!(!fcp_run(&["source"]).success);
 }
 
 #[test]
@@ -125,12 +131,9 @@ fn source_does_not_exist() {
     let destination = COPIES_DIR.join("destination");
     let source = "nonexistent_source";
     remove(&destination);
-    let result = Command::new(fcp_executable_path())
-        .args(&[source, destination.to_str().unwrap()])
-        .output()
-        .unwrap();
-    assert!(!result.status.success());
-    assert!(str::from_utf8(&result.stderr).unwrap().contains(source));
+    let result = fcp_run(&[source, destination.to_str().unwrap()]);
+    assert!(!result.success);
+    assert!(result.stderr.contains(source));
     assert!(!destination.exists());
 }
 
@@ -143,13 +146,11 @@ fn partial_directory() {
     initialize();
     let fixture_file = "partial_directory.json";
     hydrate_fixture(fixture_file);
-    let mut result = copy_fixture(fixture_file);
-    assert!(!result.status.success());
-    assert!(str::from_utf8(&result.stderr)
-        .unwrap()
-        .contains("partial_directory/two.txt"));
+    let result = copy_fixture(fixture_file);
+    assert!(!result.success);
+    assert!(result.stderr.contains("partial_directory/two.txt"));
     for file in &["one.txt", "three.txt"] {
-        result = Command::new("diff")
+        let result = Command::new("diff")
             .args(&[
                 "-q",
                 HYDRATED_DIR
@@ -178,41 +179,41 @@ fn copy_into() {
     remove(&temp_dir_path);
     fs::create(&empty_path, 0o777).unwrap();
     fs::create_dir(&temp_dir_path, 0o777).unwrap();
-    let result = Command::new(fcp_executable_path())
-        .args(&[
-            empty_path.to_str().unwrap(),
-            temp_dir_path.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(result.status.success());
-    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
+    let result = fcp_run(&[
+        empty_path.to_str().unwrap(),
+        temp_dir_path.to_str().unwrap(),
+    ]);
+    assert!(result.success);
+    assert_eq!(result.stderr, "");
     assert!(temp_dir_path.join("empty").exists());
 }
 
 #[test]
 fn copy_many_into() {
     initialize();
-    let empty_names = ["empty1", "empty2", "empty3"];
-    let empty_paths = empty_names
+    let file_names = ["empty1", "empty2", "empty3"];
+    let mut file_paths = file_names
         .iter()
         .map(|filename| COPIES_DIR.join(filename))
-        .collect::<Box<_>>();
+        .collect::<Vec<_>>();
     let temp_dir_path = COPIES_DIR.join("temp_many");
-    for path in empty_paths.iter() {
-        remove(path);
-        fs::create(path, 0o777).unwrap();
+    for path in &file_paths {
+        remove(&path);
+        fs::create(&path, 0o777).unwrap();
     }
     remove(&temp_dir_path);
     fs::create_dir(&temp_dir_path, 0o777).unwrap();
-    let result = Command::new(fcp_executable_path())
-        .args(empty_paths.iter())
-        .arg(&temp_dir_path)
-        .output()
-        .unwrap();
-    assert!(result.status.success());
-    assert_eq!(str::from_utf8(&result.stderr).unwrap(), "");
-    for name in &empty_names {
+    file_paths.push(temp_dir_path);
+    let temp_dir_path = file_paths.last().unwrap();
+    let result = fcp_run(
+        &file_paths
+            .iter()
+            .map(|path| path.to_str().unwrap())
+            .collect::<Box<_>>(),
+    );
+    assert!(result.success);
+    assert_eq!(result.stderr, "");
+    for name in &file_names {
         assert!(temp_dir_path.join(name).exists());
     }
 }
