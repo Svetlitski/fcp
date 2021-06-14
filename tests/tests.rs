@@ -67,6 +67,10 @@ make_test!(
     #[ignore]
     linux
 );
+make_test!(
+    #[ignore]
+    large_files
+);
 
 #[test]
 fn socket() {

@@ -1,5 +1,8 @@
 use fcp::{self, filesystem as fs};
 use lazy_static::lazy_static;
+use rand::prelude::*;
+use rand::{Rng, SeedableRng};
+use rand_pcg::Pcg64;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::Deserialize;
 use std::env;
@@ -105,13 +108,13 @@ fn hydrate_file(file: FileStub) {
             let metadata = file.metadata().unwrap();
             if metadata.len() < size {
                 file.seek(SeekFrom::End(0)).unwrap();
-                let mut random = fs::open("/dev/random").unwrap();
                 let mut remaining: usize = (size - metadata.len()) as usize;
-                let mut buffer = [0u8; 4096];
+                let mut rng = Pcg64::from_rng(thread_rng()).unwrap();
+                let mut buffer = [0; 1 << 16];
                 while remaining > 0 {
                     let bytes_to_process = std::cmp::min(remaining as usize, buffer.len());
                     let slice = &mut buffer[..bytes_to_process];
-                    random.read_exact(slice).unwrap();
+                    rng.fill(slice);
                     file.write_all(slice).unwrap();
                     remaining -= bytes_to_process;
                 }
