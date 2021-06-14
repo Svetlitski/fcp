@@ -38,10 +38,7 @@ fn copy_fixture(filename: &str) -> CommandResult {
     let filename = filename.strip_suffix(".json").unwrap();
     let output = COPIES_DIR.join(filename);
     remove(&output);
-    fcp_run(&[
-        HYDRATED_DIR.join(filename).to_str().unwrap(),
-        output.to_str().unwrap(),
-    ])
+    fcp_run(&[HYDRATED_DIR.join(filename), output])
 }
 
 macro_rules! make_test {
@@ -180,10 +177,7 @@ fn copy_into() {
     remove(&temp_dir_path);
     fs::create(&empty_path, 0o777).unwrap();
     fs::create_dir(&temp_dir_path, 0o777).unwrap();
-    let result = fcp_run(&[
-        empty_path.to_str().unwrap(),
-        temp_dir_path.to_str().unwrap(),
-    ]);
+    let result = fcp_run(&[&empty_path, &temp_dir_path]);
     assert!(result.success);
     assert_eq!(result.stderr, "");
     assert!(temp_dir_path.join("empty").exists());
