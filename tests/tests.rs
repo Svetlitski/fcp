@@ -1,5 +1,6 @@
 use dev_utils::*;
 use fcp::{self, filesystem as fs};
+use std::ffi::OsStr;
 use std::io::prelude::*;
 use std::process::{Command, ExitStatus};
 use std::string::String;
@@ -22,7 +23,7 @@ struct CommandResult {
     success: bool,
 }
 
-fn fcp_run(args: &[&str]) -> CommandResult {
+fn fcp_run<T: AsRef<OsStr>>(args: &[T]) -> CommandResult {
     let result = Command::new(fcp_executable_path())
         .args(args)
         .output()
@@ -121,7 +122,7 @@ fn character_device() {
 #[test]
 fn too_few_arguments() {
     initialize();
-    assert!(!fcp_run(&[]).success);
+    assert!(!fcp_run::<&str>(&[]).success);
     assert!(!fcp_run(&["source"]).success);
 }
 
@@ -191,29 +192,20 @@ fn copy_into() {
 #[test]
 fn copy_many_into() {
     initialize();
-    let file_names = ["empty1", "empty2", "empty3"];
-    let mut file_paths = file_names
-        .iter()
-        .map(|filename| COPIES_DIR.join(filename))
+    let fixture_file = "copy_many_into.json";
+    let fixture_name = fixture_file.strip_suffix(".json").unwrap();
+    hydrate_fixture(fixture_file);
+    let source_dir = HYDRATED_DIR.join(fixture_name);
+    let output_dir = COPIES_DIR.join(fixture_name);
+    remove(&output_dir);
+    fs::create_dir(&output_dir, 0o777).unwrap();
+    let mut file_paths = fs::read_dir(&source_dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
         .collect::<Vec<_>>();
-    let temp_dir_path = COPIES_DIR.join("temp_many");
-    for path in &file_paths {
-        remove(&path);
-        fs::create(&path, 0o777).unwrap();
-    }
-    remove(&temp_dir_path);
-    fs::create_dir(&temp_dir_path, 0o777).unwrap();
-    file_paths.push(temp_dir_path);
-    let temp_dir_path = file_paths.last().unwrap();
-    let result = fcp_run(
-        &file_paths
-            .iter()
-            .map(|path| path.to_str().unwrap())
-            .collect::<Box<_>>(),
-    );
+    file_paths.push(output_dir);
+    let result = fcp_run(&file_paths);
     assert!(result.success);
     assert_eq!(result.stderr, "");
-    for name in &file_names {
-        assert!(temp_dir_path.join(name).exists());
-    }
+    assert!(diff(fixture_file).success());
 }
