@@ -18,5 +18,5 @@ criterion = { version = "0.3.4", features = ["html_reports"]}
 dev_utils = { path = "dev_utils" }
 
 [[bench]]
-name = "linux_benchmark"
+name = "fcp_benchmark"
 harness = false
