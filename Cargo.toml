@@ -10,6 +10,10 @@ description = "A significantly faster alternative to the classic Unix cp(1) comm
 keywords = ["copy", "unix", "shell", "utility", "fast"]
 categories = ["command-line-utilities", "filesystem"]
 
+[[bin]]
+name = "fcp"
+path = "src/main.rs"
+
 [dependencies]
 nix = "0.21.0"
 rayon = "1.5.1"
