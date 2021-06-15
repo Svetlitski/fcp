@@ -1,3 +1,24 @@
+//! # Fixtures
+//!
+//! In order to avoid bloating the git repository, instead of storing full-fat copies of the files
+//! and directories that `fcp`'s test-cases operate on (which we call **fixtures**), we instead
+//! store a lightweight representation of them containing only the necessary information. More
+//! specifically, the fixtures are serialized to JSON describing the structure of directories,
+//! sizes of files, their permissions, and a few other relevant bits of information. When the test
+//! cases are run, the actual files that are described by the JSON are created in `HYDRATED_DIR`.
+//! The directory structure is exactly preserved, and regular files are filled to the appropriate
+//! size with random data (since the specific contents of the files don't matter to `fcp`). A JSON
+//! representation of a new fixture can be created by running `fixtures/create_fixture.py FIXTURE`
+//! (note you'll need to have the [`tree`](https://linux.die.net/man/1/tree) command installed on
+//! your system, as well as the GNU version of `diff`).
+//!
+//! # Test conventions
+//!
+//! To avoid test-cases conflicting with each other by using the same top-level file names, the
+//! convention is that the top-level file/fixture used for each test-case should have the same name
+//! as the test-case itself (e.g. the `socket` test case uses the fixture `socket.json`, which
+//! should produce a file with the name of `socket`).
+
 use dev_utils::*;
 use fcp::{self, filesystem as fs};
 use std::ffi::OsStr;
