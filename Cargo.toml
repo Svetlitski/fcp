@@ -5,6 +5,7 @@ authors = ["Kevin Svetlitski <kevin_svetlitski@berkeley.edu>"]
 edition = "2018"
 repository = "https://github.com/Svetlitski/fcp"
 license-file = "LICENSE"
+readme = "README.md"
 description = "A significantly faster alternative to the classic Unix cp(1) command"
 keywords = ["copy", "unix", "shell", "utility", "fast"]
 categories = ["command-line-utilities", "filesystem"]
