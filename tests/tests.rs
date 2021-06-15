@@ -130,8 +130,8 @@ fn too_few_arguments() {
 #[test]
 fn source_does_not_exist() {
     initialize();
-    let destination = COPIES_DIR.join("destination");
-    let source = "nonexistent_source";
+    let destination = COPIES_DIR.join("source_does_not_exist");
+    let source = "source_does_not_exist";
     remove(&destination);
     let result = fcp_run(&[source, destination.to_str().unwrap()]);
     assert!(!result.success);
@@ -175,8 +175,8 @@ fn partial_directory() {
 #[test]
 fn copy_into() {
     initialize();
-    let source = COPIES_DIR.join("empty");
-    let destination = COPIES_DIR.join("temp");
+    let source = COPIES_DIR.join("copy_into_empty");
+    let destination = COPIES_DIR.join("copy_into");
     remove(&source);
     remove(&destination);
     fs::create(&source, 0o777).unwrap();
@@ -184,7 +184,7 @@ fn copy_into() {
     let result = fcp_run(&[&source, &destination]);
     assert!(result.success);
     assert_eq!(result.stderr, "");
-    assert!(destination.join("empty").exists());
+    assert!(destination.join("copy_into_empty").exists());
 }
 
 #[test]
