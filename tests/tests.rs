@@ -36,9 +36,9 @@ fn fcp_run<T: AsRef<OsStr>>(args: &[T]) -> CommandResult {
 
 fn copy_fixture(filename: &str) -> CommandResult {
     let filename = filename.strip_suffix(".json").unwrap();
-    let output = COPIES_DIR.join(filename);
-    remove(&output);
-    fcp_run(&[HYDRATED_DIR.join(filename), output])
+    let destination = COPIES_DIR.join(filename);
+    remove(&destination);
+    fcp_run(&[HYDRATED_DIR.join(filename), destination])
 }
 
 macro_rules! make_test {
@@ -97,23 +97,23 @@ fn fifo() {
 #[test]
 fn character_device() {
     initialize();
-    let output_path = COPIES_DIR.join("character_device");
-    remove(&output_path);
+    let destination = COPIES_DIR.join("character_device");
+    remove(&destination);
     let contents = "Hello world\r";
     let result = Command::new("tests/character_device.exp")
         .args(&[
             fcp_executable_path().to_str().unwrap(),
-            output_path.to_str().unwrap(),
+            destination.to_str().unwrap(),
             contents,
         ])
         .output()
         .unwrap();
     assert!(result.status.success());
     assert_eq!(String::from_utf8(result.stderr).unwrap(), "");
-    assert!(output_path.exists());
-    let mut output_file = fs::open(output_path).unwrap();
+    assert!(destination.exists());
+    let mut output = fs::open(destination).unwrap();
     let mut output_contents = Vec::with_capacity(contents.len());
-    output_file.read_to_end(&mut output_contents).unwrap();
+    output.read_to_end(&mut output_contents).unwrap();
     assert_eq!(
         String::from_utf8(output_contents).unwrap(),
         contents.replace('\r', "\n")
@@ -175,16 +175,16 @@ fn partial_directory() {
 #[test]
 fn copy_into() {
     initialize();
-    let empty_path = COPIES_DIR.join("empty");
-    let temp_dir_path = COPIES_DIR.join("temp");
-    remove(&empty_path);
-    remove(&temp_dir_path);
-    fs::create(&empty_path, 0o777).unwrap();
-    fs::create_dir(&temp_dir_path, 0o777).unwrap();
-    let result = fcp_run(&[&empty_path, &temp_dir_path]);
+    let source = COPIES_DIR.join("empty");
+    let destination = COPIES_DIR.join("temp");
+    remove(&source);
+    remove(&destination);
+    fs::create(&source, 0o777).unwrap();
+    fs::create_dir(&destination, 0o777).unwrap();
+    let result = fcp_run(&[&source, &destination]);
     assert!(result.success);
     assert_eq!(result.stderr, "");
-    assert!(temp_dir_path.join("empty").exists());
+    assert!(destination.join("empty").exists());
 }
 
 #[test]
@@ -193,15 +193,15 @@ fn copy_many_into() {
     let fixture_file = "copy_many_into.json";
     let fixture_name = fixture_file.strip_suffix(".json").unwrap();
     hydrate_fixture(fixture_file);
-    let source_dir = HYDRATED_DIR.join(fixture_name);
-    let output_dir = COPIES_DIR.join(fixture_name);
-    remove(&output_dir);
-    fs::create_dir(&output_dir, 0o777).unwrap();
-    let mut file_paths = fs::read_dir(&source_dir)
+    let source = HYDRATED_DIR.join(fixture_name);
+    let destination = COPIES_DIR.join(fixture_name);
+    remove(&destination);
+    fs::create_dir(&destination, 0o777).unwrap();
+    let mut file_paths = fs::read_dir(&source)
         .unwrap()
         .map(|entry| entry.unwrap().path())
         .collect::<Vec<_>>();
-    file_paths.push(output_dir);
+    file_paths.push(destination);
     let result = fcp_run(&file_paths);
     assert!(result.success);
     assert_eq!(result.stderr, "");
