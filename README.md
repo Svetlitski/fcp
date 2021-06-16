@@ -6,6 +6,8 @@
 
 `fcp` does _not_ aim to completely replace `cp` with its myriad options.
 
+**Note**: `fcp` is optimized for systems with an SSD. On systems with a HDD, `fcp` may exhibit poor performance.
+
 ## Installation
 
 ### Pre-built binaries
@@ -46,7 +48,7 @@ different performance characteristics, the same benchmarks were run on both macO
 
 ### macOS
 
-The following benchmarks were run on a 2018 MacBook Pro<sup><a href="#footnote-2">2</a></sup> (2.9 GHz 6-Core Intel Core i9, 16 GiB RAM, SSD)
+The following benchmarks were run on a 2018 MacBook Pro<sup><a href="#footnote-2">2</a></sup> (2.9 GHz 6-Core Intel Core i9, 16 GiB RAM, SSD) with [APFS](https://developer.apple.com/documentation/foundation/file_system/about_apple_file_system) as the filesystem.
 
 #### Large Files
 
@@ -62,7 +64,7 @@ The following shows the result of a benchmark which copies the source tree of th
 
 ### Linux
 
-The following benchmarks were run on a bare-metal AWS EC2 instance (a1.metal, 16 CPUs, 32 GiB RAM, SSD)
+The following benchmarks were run on a bare-metal AWS EC2 instance (a1.metal, 16 CPUs, 32 GiB RAM, SSD) with [XFS](https://en.wikipedia.org/wiki/XFS) as the filesystem.
 
 #### Linux Kernel Source
 
