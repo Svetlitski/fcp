@@ -20,6 +20,10 @@ Pre-built binaries for some systems can be found under [this repository's releas
 cargo install fcp
 ```
 
+### Arch Linux
+
+`fcp` can be installed on Arch Linux via the AUR at: [https://aur.archlinux.org/packages/fcp-git/](https://aur.archlinux.org/packages/fcp-git/)
+
 ## Usage
 
 Usage information can be found by running `fcp --help`, and has been reproduced below:
