@@ -5,6 +5,7 @@ use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::Deserialize;
+use std::cell::RefCell;
 use std::env;
 use std::io::prelude::*;
 use std::io::SeekFrom;
@@ -13,6 +14,7 @@ use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::sync::Once;
+use std::thread_local;
 
 lazy_static! {
     pub static ref FIXTURES_DIR: PathBuf = PathBuf::from("fixtures");
@@ -110,14 +112,19 @@ fn hydrate_file(file: FileStub) {
                 file.seek(SeekFrom::End(0)).unwrap();
                 let mut remaining: usize = (size - metadata.len()) as usize;
                 let mut rng = Pcg64::from_rng(thread_rng()).unwrap();
-                let mut buffer = [0; 1 << 16];
-                while remaining > 0 {
-                    let bytes_to_process = std::cmp::min(remaining as usize, buffer.len());
-                    let slice = &mut buffer[..bytes_to_process];
-                    rng.fill(slice);
-                    file.write_all(slice).unwrap();
-                    remaining -= bytes_to_process;
+                thread_local! {
+                    static BUFFER: RefCell<[u8; 1<<16]> = RefCell::new([0; 1<<16]);
                 }
+                BUFFER.with(|buffer| {
+                    let mut buffer = buffer.borrow_mut();
+                    while remaining > 0 {
+                        let bytes_to_process = std::cmp::min(remaining as usize, buffer.len());
+                        let slice = &mut buffer[..bytes_to_process];
+                        rng.fill(slice);
+                        file.write_all(slice).unwrap();
+                        remaining -= bytes_to_process;
+                    }
+                });
             }
         }
         FileKind::Symlink { target } => fs::symlink(HYDRATED_DIR.join(target), path).unwrap(),
