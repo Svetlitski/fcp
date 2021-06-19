@@ -5,7 +5,9 @@ use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg64;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use serde::Deserialize;
+use serde_json::Deserializer;
 use std::cell::RefCell;
+use std::cmp;
 use std::env;
 use std::io::prelude::*;
 use std::io::SeekFrom;
@@ -44,16 +46,14 @@ enum FileKind {
     Regular {
         size: u64,
     },
+    Directory {
+        contents: Vec<FileStub>,
+    },
     #[serde(rename = "link")]
     Symlink {
         target: PathBuf,
     },
-    Directory {
-        contents: Vec<FileStub>,
-    },
-    Fifo {
-        size: u64,
-    },
+    Fifo {},
     Socket {},
 }
 
@@ -93,7 +93,7 @@ pub fn hydrate_fixture(filename: &str) {
         remove(&output_path);
     }
 
-    let mut files = serde_json::Deserializer::from_reader(fs::open(&fixture_path).unwrap());
+    let mut files = Deserializer::from_reader(fs::open(&fixture_path).unwrap());
     files.disable_recursion_limit();
     files
         .into_iter::<Vec<FileStub>>()
@@ -118,7 +118,7 @@ fn hydrate_file(file: FileStub) {
                 BUFFER.with(|buffer| {
                     let mut buffer = buffer.borrow_mut();
                     while remaining > 0 {
-                        let bytes_to_process = std::cmp::min(remaining as usize, buffer.len());
+                        let bytes_to_process = cmp::min(remaining as usize, buffer.len());
                         let slice = &mut buffer[..bytes_to_process];
                         rng.fill(slice);
                         file.write_all(slice).unwrap();
@@ -127,12 +127,12 @@ fn hydrate_file(file: FileStub) {
                 });
             }
         }
-        FileKind::Symlink { target } => fs::symlink(HYDRATED_DIR.join(target), path).unwrap(),
-        FileKind::Fifo { .. } => fs::mkfifo(path, PermissionsExt::from_mode(mode)).unwrap(),
         FileKind::Directory { contents } => {
             fs::create_dir(path, mode).unwrap();
             contents.into_par_iter().for_each(hydrate_file);
         }
+        FileKind::Symlink { target } => fs::symlink(HYDRATED_DIR.join(target), path).unwrap(),
+        FileKind::Fifo {} => fs::mkfifo(path, PermissionsExt::from_mode(mode)).unwrap(),
         FileKind::Socket {} => {
             UnixListener::bind(path).unwrap();
         }
