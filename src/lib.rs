@@ -41,7 +41,7 @@ fn copy_file(source: &Path, dest: &Path) -> bool {
                     source.display(),
                 )));
             }
-            FileType::BlockDevice(metadata) | FileType::CharacterDevice(metadata) => {
+            FileType::CharacterDevice(metadata) | FileType::BlockDevice(metadata) => {
                 let mut source = fs::open(source)?;
                 let mut dest = fs::create(dest, metadata.permissions().mode())?;
                 io::copy(&mut source, &mut dest)?;

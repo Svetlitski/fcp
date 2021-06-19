@@ -37,9 +37,7 @@ impl Error {
 }
 
 macro_rules! wrap {
-    ($(#[$attributes:meta])*
-     $namespace:ident, $function:ident, $payload:ty) => {
-        $(#[$attributes])*
+    ($namespace:ident, $function:ident, $payload:ty) => {
         pub fn $function<P: AsRef<Path>>(path: P) -> Result<$payload, Error> {
             $namespace::$function(path.as_ref())
                 .map_err(|err| Error::new(format!("{}: {}", path.as_ref().display(), err)))
@@ -50,16 +48,12 @@ macro_rules! wrap {
 macro_rules! wrap2 {
     ($function:ident, $namespace:ident, $payload:ty) => {
         pub fn $function<P: AsRef<Path>, Q: AsRef<Path>>(
-            src: P,
-            dst: Q,
+            source: P,
+            dest: Q,
         ) -> Result<$payload, Error> {
-            $namespace::$function(src.as_ref(), dst.as_ref()).map_err(|err| {
-                Error::new(format!(
-                    "{}, {}: {}",
-                    src.as_ref().display(),
-                    dst.as_ref().display(),
-                    err
-                ))
+            let (source, dest) = (source.as_ref(), dest.as_ref());
+            $namespace::$function(source, dest).map_err(|err| {
+                Error::new(format!("{}, {}: {}", source.display(), dest.display(), err))
             })
         }
     };
@@ -68,19 +62,8 @@ macro_rules! wrap2 {
 wrap!(fs, symlink_metadata, Metadata);
 wrap!(fs, read_link, PathBuf);
 wrap!(fs, read_dir, ReadDir);
-// The remove_* functions are used in tests, so we silence the dead code warning
-wrap!(
-    #[allow(dead_code)]
-    fs,
-    remove_dir_all,
-    ()
-);
-wrap!(
-    #[allow(dead_code)]
-    fs,
-    remove_file,
-    ()
-);
+wrap!(fs, remove_dir_all, ());
+wrap!(fs, remove_file, ());
 wrap!(File, open, File);
 wrap2!(symlink, unix, ());
 wrap2!(copy, fs, u64);
@@ -123,8 +106,8 @@ pub enum FileType {
     Symlink,
     Fifo(Metadata),
     Socket,
-    BlockDevice(Metadata),
     CharacterDevice(Metadata),
+    BlockDevice(Metadata),
 }
 
 pub fn file_type(path: &Path) -> Result<FileType, Error> {
@@ -145,6 +128,9 @@ pub fn file_type(path: &Path) -> Result<FileType, Error> {
     } else if file_type.is_block_device() {
         FileType::BlockDevice(metadata)
     } else {
-        unreachable!();
+        unreachable!(
+            "{}: file appears to exist but is an unknown type",
+            path.display()
+        );
     })
 }
