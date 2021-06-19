@@ -1,4 +1,5 @@
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use std::array;
 use std::fmt::Display;
 use std::fs::Metadata;
 use std::io;
@@ -8,7 +9,7 @@ use std::process;
 
 pub mod filesystem;
 
-use crate::filesystem::{self as fs, FileType};
+use crate::filesystem::{self as fs, Error, FileType};
 
 pub fn fatal(message: impl Display) -> ! {
     eprintln!("{}", message);
@@ -22,44 +23,40 @@ pub fn fatal(message: impl Display) -> ! {
 // However, at the end of the process we still need to know whether or not an error occurred at any
 // point in order to set the exit code appropriately.
 fn copy_file(source: &Path, dest: &Path) -> bool {
-    match copy_file_impl(source, dest) {
-        Err(err) => {
-            eprintln!("{}", err);
-            true
+    fn __copy_file(source: &Path, dest: &Path) -> Result<bool, Error> {
+        match fs::file_type(source)? {
+            FileType::Regular => {
+                fs::copy(source, dest)?;
+            }
+            FileType::Directory(metadata) => return copy_directory((source, metadata), dest),
+            FileType::Symlink => {
+                fs::symlink(fs::read_link(source)?, dest)?;
+            }
+            FileType::Fifo(metadata) => {
+                fs::mkfifo(dest, metadata.permissions())?;
+            }
+            FileType::Socket => {
+                return Err(Error::new(format!(
+                    "{}: sockets cannot be copied",
+                    source.display(),
+                )));
+            }
+            FileType::BlockDevice(metadata) | FileType::CharacterDevice(metadata) => {
+                let mut source = fs::open(source)?;
+                let mut dest = fs::create(dest, metadata.permissions().mode())?;
+                io::copy(&mut source, &mut dest)?;
+            }
         }
-        Ok(had_error) => had_error,
+        Ok(false)
     }
+
+    __copy_file(source, dest).unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        true
+    })
 }
 
-fn copy_file_impl(source: &Path, dest: &Path) -> Result<bool, fs::Error> {
-    match fs::file_type(source)? {
-        FileType::Regular => {
-            fs::copy(source, dest)?;
-        }
-        FileType::Directory(metadata) => return copy_directory((source, metadata), dest),
-        FileType::Symlink => {
-            fs::symlink(fs::read_link(source)?, dest)?;
-        }
-        FileType::Fifo(metadata) => {
-            fs::mkfifo(dest, metadata.permissions())?;
-        }
-        FileType::Socket => {
-            return Err(fs::Error::new(format!(
-                "{}: {}",
-                source.display(),
-                "sockets cannot be copied"
-            )));
-        }
-        FileType::BlockDevice(metadata) | FileType::CharacterDevice(metadata) => {
-            let mut source = fs::open(source)?;
-            let mut dest = fs::create(dest, metadata.permissions().mode())?;
-            io::copy(&mut source, &mut dest)?;
-        }
-    }
-    Ok(false)
-}
-
-fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<bool, fs::Error> {
+fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<bool, Error> {
     let (source, metadata) = source;
     fs::create_dir(dest, metadata.permissions().mode())?;
     Ok(fs::read_dir(source)?
@@ -91,23 +88,19 @@ fn copy_many(sources: &[PathBuf], dest: &Path) -> bool {
                     return true;
                 }
             };
-            let dest = dest.join(file_name);
-            copy_file(&source, &dest)
+            copy_file(&source, &dest.join(file_name))
         })
         .reduce(|| false, |a, b| a | b)
 }
 
 pub fn fcp(args: &[String]) -> bool {
-    let args: Vec<_> = args.iter().map(PathBuf::from).collect();
-    match args.as_slice() {
+    let args: Box<_> = args.iter().map(PathBuf::from).collect();
+    match args.as_ref() {
         [] | [_] => fatal("Please provide at least two arguments (run 'fcp --help' for details)"),
-        [first, last] => match fs::symlink_metadata(last) {
-            Ok(metadata) if metadata.is_dir() => copy_many(&[first.clone()], last),
-            _ => copy_file(first, last),
+        [source, dest] => match fs::symlink_metadata(dest) {
+            Ok(metadata) if metadata.is_dir() => copy_many(array::from_ref(source), dest),
+            _ => copy_file(source, dest),
         },
-        _ => {
-            let (dest, sources) = args.split_last().unwrap();
-            copy_many(sources, dest)
-        }
+        [sources @ .., dest] => copy_many(sources, dest),
     }
 }
