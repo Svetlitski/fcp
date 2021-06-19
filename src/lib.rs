@@ -3,6 +3,7 @@ use std::array;
 use std::fmt::Display;
 use std::fs::Metadata;
 use std::io;
+use std::ops::BitOr;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process;
@@ -29,12 +30,8 @@ fn copy_file(source: &Path, dest: &Path) -> bool {
                 fs::copy(source, dest)?;
             }
             FileType::Directory(metadata) => return copy_directory((source, metadata), dest),
-            FileType::Symlink => {
-                fs::symlink(fs::read_link(source)?, dest)?;
-            }
-            FileType::Fifo(metadata) => {
-                fs::mkfifo(dest, metadata.permissions())?;
-            }
+            FileType::Symlink => fs::symlink(fs::read_link(source)?, dest)?,
+            FileType::Fifo(metadata) => fs::mkfifo(dest, metadata.permissions())?,
             FileType::Socket => {
                 return Err(Error::new(format!(
                     "{}: sockets cannot be copied",
@@ -69,12 +66,12 @@ fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<bool, Error>
                 true
             }
         })
-        .reduce(|| false, |a, b| a | b))
+        .reduce(|| false, BitOr::bitor))
 }
 
 /// Copy each file in `sources` into the directory `dest`.
-fn copy_many(sources: &[PathBuf], dest: &Path) -> bool {
-    let metadata = fs::symlink_metadata(&dest).map_err(fatal).unwrap();
+fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
+    let metadata = fs::symlink_metadata(dest).unwrap_or_else(|err| fatal(err));
     if !metadata.is_dir() {
         fatal(format!("{} is not a directory", dest.display()));
     }
@@ -88,9 +85,9 @@ fn copy_many(sources: &[PathBuf], dest: &Path) -> bool {
                     return true;
                 }
             };
-            copy_file(&source, &dest.join(file_name))
+            copy_file(source, &dest.join(file_name))
         })
-        .reduce(|| false, |a, b| a | b)
+        .reduce(|| false, BitOr::bitor)
 }
 
 pub fn fcp(args: &[String]) -> bool {
@@ -98,9 +95,9 @@ pub fn fcp(args: &[String]) -> bool {
     match args.as_ref() {
         [] | [_] => fatal("Please provide at least two arguments (run 'fcp --help' for details)"),
         [source, dest] => match fs::symlink_metadata(dest) {
-            Ok(metadata) if metadata.is_dir() => copy_many(array::from_ref(source), dest),
+            Ok(metadata) if metadata.is_dir() => copy_into(array::from_ref(source), dest),
             _ => copy_file(source, dest),
         },
-        [sources @ .., dest] => copy_many(sources, dest),
+        [sources @ .., dest] => copy_into(sources, dest),
     }
 }
