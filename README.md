@@ -10,6 +10,8 @@
 
 ## Installation
 
+Please note that `fcp` supports only Unix-like operating systems (e.g. Linux, macOS, etc.).
+
 ### Pre-built binaries
 
 Pre-built binaries for some systems can be found under [this repository's releases](https://github.com/Svetlitski/fcp/releases).
@@ -79,6 +81,26 @@ The following shows the result of a benchmark which copies a directory containin
 ![`fcp` is approximately 1.4x faster than `cp, with `fcp`'s average time to copy being approximately 8 seconds, while `cp`'s average time to copy is approximately 11.3 seconds](https://user-images.githubusercontent.com/35482043/122125941-ae02cc80-cdf6-11eb-9899-a93ed0442f6f.png)
 
 
+## Methodology
+
+`fcp`'s high-performance can be attributed to several factors, but is primarily
+the result of leveraging parallelism, distributing the work of walking
+directories and copying their contents across all of your machine's cores. This
+leads to a significant performance increase on systems with an SSD, as more I/O
+requests are issued over the same period of time (as compared to a
+single-threaded approach), resulting in a higher-average queue depth, thus
+allowing higher utilization of the SSD (as a function of its maximum IOPS) and
+correspondingly higher throughput.
+
+Additionally, on macOS (and perhaps in the future on other operating systems) `fcp`
+utilizes the system's underlying [copy-on-write](https://en.wikipedia.org/wiki/Copy-on-write)
+capability, dramatically reducing the time needed to copy large files.
+
+These two factors – in addition to an overall performance-conscious approach to this problem – serve
+to explain `fcp`'s significantly improved performance relative to `cp`.
+<br>
+<br>
+<br>
 
 [1] See the [benchmarks](#benchmarks).
 
