@@ -77,15 +77,12 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
     }
     sources
         .into_par_iter()
-        .map(|source| {
-            let file_name = match source.file_name() {
-                Some(file_name) => file_name,
-                None => {
-                    eprintln!("{}: invalid file path", source.display());
-                    return true;
-                }
-            };
-            copy_file(source, &dest.join(file_name))
+        .map(|source| match source.file_name() {
+            Some(file_name) => copy_file(source, &dest.join(file_name)),
+            None => {
+                eprintln!("{}: invalid file path", source.display());
+                true
+            }
         })
         .reduce(|| false, BitOr::bitor)
 }
