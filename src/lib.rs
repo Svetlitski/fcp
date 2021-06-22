@@ -1,10 +1,11 @@
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::array;
+use std::env;
 use std::fmt::Display;
 use std::fs::Metadata;
 use std::io;
 use std::ops::BitOr;
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -69,16 +70,75 @@ fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<bool, Error>
         .reduce(|| false, BitOr::bitor))
 }
 
+fn reject_self_copies(sources: &[PathBuf], dest: &Path) -> Result<(), Error> {
+    let current_dir = env::current_dir()?;
+    let mut prefix = Path::new("");
+    // We make `dest` absolute because for relative paths the final non-`None` value returned by
+    // `Path::ancestors` is always `Some("")`, which is problematic because:
+    // 1. It would cause spurious errors, as trying to query the metadata of an empty path
+    //    trivially results in an error due to no file corresponding to the given path.
+    // 2. In some instances self-copies would not be prevented, as we wouldn't check all of our
+    //    ancestors, just the ones up to the current directory.
+    let dest = if dest.is_relative() {
+        prefix = current_dir.as_path();
+        current_dir.join(dest)
+    } else {
+        dest.to_path_buf()
+    };
+
+    // We use `fs::metadata` for `ancestor_inos` since we do the exact same thing regardless of
+    // whether `dest` is a directory or a symlink pointing to one.
+    let ancestor_inos = dest
+        .ancestors()
+        .map(|ancestor| fs::metadata(ancestor).map(|meta| meta.ino()));
+
+    // In contrast, we use `fs::symlink_metadata` for `source_inos` because we copy the symlinks
+    // themselves, not the underlying files that they point to.
+    let source_inos = sources
+        .iter()
+        .map(|source| fs::symlink_metadata(source).map(|meta| meta.ino()))
+        .collect::<Box<_>>();
+
+    let mut errors = Vec::new();
+
+    for (ancestor, ino) in dest.ancestors().zip(ancestor_inos) {
+        let ino = ino?;
+        for (source, source_ino) in sources.iter().zip(source_inos.as_ref()) {
+            match source_ino {
+                Ok(source_ino) if *source_ino == ino => errors.push(format!(
+                    "Cannot copy directory '{}' into itself '{}'",
+                    source.display(),
+                    ancestor.strip_prefix(prefix).unwrap_or(ancestor).display()
+                )),
+                Err(err) => errors.push(err.to_string()),
+                _ => {}
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        Err(Error::new(errors.join("\n")))
+    } else {
+        Ok(())
+    }
+}
+
 /// Copy each file in `sources` into the directory `dest`.
 fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
-    let metadata = fs::symlink_metadata(dest).unwrap_or_else(|err| fatal(err));
-    if !metadata.is_dir() {
-        fatal(format!("{} is not a directory", dest.display()));
+    if let Some(err) = match fs::metadata(dest) {
+        Err(err) => Some(err),
+        Ok(metadata) if !metadata.is_dir() => {
+            Some(Error::new(format!("{} is not a directory", dest.display())))
+        }
+        _ => reject_self_copies(sources, dest).err(),
+    } {
+        fatal(err)
     }
+
     sources
         .into_par_iter()
         .map(|source| match source.file_name() {
-            Some(file_name) => copy_file(source, &dest.join(file_name)),
+            Some(file_name) => copy_file(&source, &dest.join(file_name)),
             None => {
                 eprintln!("{}: invalid file path", source.display());
                 true
@@ -87,14 +147,24 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
         .reduce(|| false, BitOr::bitor)
 }
 
+fn copy_single(source: &PathBuf, dest: &Path) -> bool {
+    let source_metadata = fs::symlink_metadata(source).unwrap_or_else(|err| fatal(err));
+    match fs::symlink_metadata(dest) {
+        Ok(metadata) if metadata.is_dir() => copy_into(array::from_ref(source), dest),
+        Ok(metadata) if source_metadata.ino() == metadata.ino() => fatal(format!(
+            "Cannot overwrite file '{}' with itself '{}'",
+            source.display(),
+            dest.display()
+        )),
+        _ => copy_file(source, dest),
+    }
+}
+
 pub fn fcp(args: &[String]) -> bool {
     let args: Box<_> = args.iter().map(PathBuf::from).collect();
     match args.as_ref() {
         [] | [_] => fatal("Please provide at least two arguments (run 'fcp --help' for details)"),
-        [source, dest] => match fs::symlink_metadata(dest) {
-            Ok(metadata) if metadata.is_dir() => copy_into(array::from_ref(source), dest),
-            _ => copy_file(source, dest),
-        },
+        [source, dest] => copy_single(source, dest),
         [sources @ .., dest] => copy_into(sources, dest),
     }
 }
