@@ -209,6 +209,34 @@ fn copy_into() {
     assert!(destination.join("copy_into_empty").exists());
 }
 
+#[test]
+fn copy_into_symlink() {
+    initialize();
+    let fixture_file = "copy_into_symlink.json";
+    remove(&HYDRATED_DIR.join(fixture_file.strip_suffix(".json").unwrap()));
+    hydrate_fixture(fixture_file);
+    let fixture_path = HYDRATED_DIR.join(fixture_file.strip_suffix(".json").unwrap());
+    let source = fixture_path.join("source_directory");
+    let destination = fixture_path.join("symlink");
+    let result = fcp_run(&[&source, &destination]);
+    assert!(result.success);
+    assert_eq!(result.stderr, "");
+    let result = Command::new("diff")
+        .args(&[
+            "-rq",
+            source.to_str().unwrap(),
+            destination
+                .with_file_name("directory")
+                .join("source_directory")
+                .to_str()
+                .unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert_eq!(String::from_utf8(result.stderr).unwrap(), "");
+}
+
 fn copy_many_into(fixture_file: &str, create_destination: fn(&Path)) -> CommandResult {
     initialize();
     let fixture_name = fixture_file.strip_suffix(".json").unwrap();
@@ -251,7 +279,7 @@ fn copy_many_into_destination_is_not_directory() {
         fs::create(destination, 0o777).unwrap();
     });
     assert!(!result.success);
-    assert_ne!(result.stderr, "");
+    assert!(result.stderr.contains("is not a directory"));
 }
 
 #[test]
@@ -280,4 +308,41 @@ fn copy_many_into_permissions_error() {
             .unwrap();
         assert!(result.success());
     }
+}
+
+#[test]
+fn prevent_copying_into_self() {
+    initialize();
+    fn assert_self_copy_failure(paths: &[&Path]) {
+        let result = fcp_run(paths);
+        assert!(!result.success);
+        assert!(result.stderr.contains("Cannot copy directory"));
+    }
+
+    let source = HYDRATED_DIR.join("prevent_copying_into_self");
+    remove(&source);
+    fs::create_dir(&source, 0o777).unwrap();
+    // Directly copying into self
+    assert_self_copy_failure(&[&source, &source]);
+    let other = HYDRATED_DIR.join("prevent_copying_into_self_other");
+    remove(&other);
+    fs::create_dir(&other, 0o777).unwrap();
+    // Directly copying into self, but other sources are okay
+    assert_self_copy_failure(&[&other, &source, &source]);
+    // Copying into self by way of parent directory
+    assert_self_copy_failure(&[&*HYDRATED_DIR, &source]);
+    fs::symlink("../", source.join("symlink")).unwrap();
+    // Copying into self by way of symlink
+    assert_self_copy_failure(&[
+        &source.join("symlink").join(source.file_name().unwrap()),
+        &source,
+    ]);
+    // Copying into self by way of purely relative paths
+    assert_self_copy_failure(&[Path::new(".."), Path::new(".")]);
+    let normal = source.join("normal");
+    fs::create(&normal, 0o777).unwrap();
+    // Copying a non-directory onto itself
+    let result = fcp_run(&[&normal, &normal]);
+    assert!(!result.success);
+    assert!(result.stderr.contains("Cannot overwrite file"));
 }

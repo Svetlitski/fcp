@@ -60,10 +60,13 @@ macro_rules! wrap2 {
 }
 
 wrap!(fs, symlink_metadata, Metadata);
+wrap!(fs, metadata, Metadata);
 wrap!(fs, read_link, PathBuf);
 wrap!(fs, read_dir, ReadDir);
 wrap!(fs, remove_dir_all, ());
 wrap!(fs, remove_file, ());
+wrap!(fs, canonicalize, PathBuf);
+wrap!(fs, create_dir_all, ());
 wrap!(File, open, File);
 wrap2!(symlink, unix, ());
 wrap2!(copy, fs, u64);
