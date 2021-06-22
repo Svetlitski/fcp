@@ -23,6 +23,7 @@ use dev_utils::*;
 use fcp::{self, filesystem as fs};
 use std::ffi::OsStr;
 use std::io::prelude::*;
+use std::path::Path;
 use std::process::{Command, ExitStatus};
 use std::string::String;
 
@@ -172,7 +173,7 @@ fn partial_directory() {
     let result = copy_fixture(fixture_file);
     assert!(!result.success);
     assert!(result.stderr.contains("partial_directory/two.txt"));
-    for file in &["one.txt", "three.txt"] {
+    for file in ["one.txt", "three.txt"] {
         let result = Command::new("diff")
             .args(&[
                 "-q",
@@ -208,23 +209,75 @@ fn copy_into() {
     assert!(destination.join("copy_into_empty").exists());
 }
 
-#[test]
-fn copy_many_into() {
+fn copy_many_into(fixture_file: &str, create_destination: fn(&Path)) -> CommandResult {
     initialize();
-    let fixture_file = "copy_many_into.json";
     let fixture_name = fixture_file.strip_suffix(".json").unwrap();
     hydrate_fixture(fixture_file);
     let source = HYDRATED_DIR.join(fixture_name);
     let destination = COPIES_DIR.join(fixture_name);
     remove(&destination);
-    fs::create_dir(&destination, 0o777).unwrap();
+    create_destination(&destination);
     let mut file_paths = fs::read_dir(&source)
         .unwrap()
         .map(|entry| entry.unwrap().path())
         .collect::<Vec<_>>();
     file_paths.push(destination);
-    let result = fcp_run(&file_paths);
+    fcp_run(&file_paths)
+}
+
+#[test]
+fn copy_many_into_success() {
+    let fixture_file = "copy_many_into_success.json";
+    let result = copy_many_into(fixture_file, |destination| {
+        fs::create_dir(destination, 0o777).unwrap()
+    });
     assert!(result.success);
     assert_eq!(result.stderr, "");
     assert!(diff(fixture_file).success());
+}
+
+#[test]
+fn copy_many_into_destination_does_not_exist() {
+    let fixture_file = "copy_many_into_destination_does_not_exist.json";
+    let result = copy_many_into(fixture_file, |_| ());
+    assert!(!result.success);
+    assert_ne!(result.stderr, "");
+}
+
+#[test]
+fn copy_many_into_destination_is_not_directory() {
+    let fixture_file = "copy_many_into_destination_is_not_directory.json";
+    let result = copy_many_into(fixture_file, |destination| {
+        fs::create(destination, 0o777).unwrap();
+    });
+    assert!(!result.success);
+    assert_ne!(result.stderr, "");
+}
+
+#[test]
+//  We directly copy three files - one.txt, two.txt, and three.txt - into the destination
+//  directory. two.txt is inaccessible due to its permissions. We want to ensure that the error in
+//  copying two.txt is reported, but that the other files are still copied successfully.
+//
+//  This is similar to the partial_directory test, but here the source files are all specified as
+//  arguments, instead of a single directory being given as the source.
+fn copy_many_into_permissions_error() {
+    let fixture_file = "copy_many_into_permissions_error.json";
+    let fixture_name = fixture_file.strip_suffix(".json").unwrap();
+    let result = copy_many_into(fixture_file, |destination| {
+        fs::create_dir(destination, 0o777).unwrap();
+    });
+    assert!(!result.success);
+    assert!(result.stderr.contains("two.txt"));
+    for file in ["one.txt", "three.txt"] {
+        let result = Command::new("diff")
+            .args(&[
+                "-q",
+                HYDRATED_DIR.join(fixture_name).join(file).to_str().unwrap(),
+                COPIES_DIR.join(fixture_name).join(file).to_str().unwrap(),
+            ])
+            .status()
+            .unwrap();
+        assert!(result.success());
+    }
 }
