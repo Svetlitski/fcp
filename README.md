@@ -28,6 +28,14 @@ cargo install fcp
 
 `fcp` can be installed on Arch Linux via the AUR at: [https://aur.archlinux.org/packages/fcp-git/](https://aur.archlinux.org/packages/fcp-git/)
 
+### macOS
+
+`fcp` can be installed on macOS via Homebrew by running the following:
+
+```sh
+brew install fcp
+```
+
 ## Usage
 
 Usage information can be found by running `fcp --help`, and has been reproduced below:
