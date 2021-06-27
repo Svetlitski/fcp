@@ -131,7 +131,7 @@ fn hydrate_file(file: FileStub) {
             fs::create_dir(path, mode).unwrap();
             contents.into_par_iter().for_each(hydrate_file);
         }
-        FileKind::Symlink { target } => fs::symlink(HYDRATED_DIR.join(target), path).unwrap(),
+        FileKind::Symlink { target } => fs::symlink(target, path).unwrap(),
         FileKind::Fifo {} => fs::mkfifo(path, PermissionsExt::from_mode(mode)).unwrap(),
         FileKind::Socket {} => {
             UnixListener::bind(path).unwrap();

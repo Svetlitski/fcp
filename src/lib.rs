@@ -149,9 +149,9 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
 
 fn copy_single(source: &PathBuf, dest: &Path) -> bool {
     let source_metadata = fs::symlink_metadata(source).unwrap_or_else(|err| fatal(err));
-    match fs::symlink_metadata(dest) {
-        Ok(metadata) if metadata.is_dir() => copy_into(array::from_ref(source), dest),
-        Ok(metadata) if source_metadata.ino() == metadata.ino() => fatal(format!(
+    match (fs::metadata(dest), fs::symlink_metadata(dest)) {
+        (Ok(metadata), _) if metadata.is_dir() => copy_into(array::from_ref(source), dest),
+        (_, Ok(metadata)) if source_metadata.ino() == metadata.ino() => fatal(format!(
             "Cannot overwrite file '{}' with itself '{}'",
             source.display(),
             dest.display()
