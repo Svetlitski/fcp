@@ -12,5 +12,5 @@ rayon = "1.5.1"
 serde = { version = "1.0.126", features = ["derive"] }
 serde_json = { version = "1.0.64", features = ["unbounded_depth"] }
 lazy_static = "1.4.0"
-rand_pcg = "0.3.0"
-rand = "0.8.3"
+rand_pcg = "0.3.1"
+rand = "0.8.4"
