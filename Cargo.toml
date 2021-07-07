@@ -1,6 +1,6 @@
 [package]
 name = "fcp"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Kevin Svetlitski <kevin_svetlitski@berkeley.edu>"]
 edition = "2018"
 repository = "https://github.com/Svetlitski/fcp"
