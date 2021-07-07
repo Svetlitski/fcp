@@ -1,6 +1,8 @@
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::array;
+use std::collections::HashMap;
 use std::env;
+use std::ffi::OsStr;
 use std::fmt::Display;
 use std::fs::Metadata;
 use std::io;
@@ -123,6 +125,44 @@ fn reject_self_copies(sources: &[PathBuf], dest: &Path) -> Result<(), Error> {
     }
 }
 
+fn file_names(sources: &[PathBuf]) -> Result<Vec<&OsStr>, Error> {
+    let source_file_names = sources
+        .iter()
+        .map(|source| {
+            source.file_name().ok_or_else(|| {
+                Error::new(format!(
+                    "{}: path does not end with a file name",
+                    source.display()
+                ))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut sources_by_name: HashMap<_, Vec<_>> = HashMap::new();
+    for (source, file_name) in sources.iter().zip(&source_file_names) {
+        sources_by_name.entry(file_name).or_default().push(source);
+    }
+    let errors = sources_by_name
+        .values()
+        .filter_map(|source_group| {
+                (source_group.len() > 1).then(|| {
+                format!(
+                "{}: paths have the same file name and thus would be copied to the same destination",
+                source_group
+                    .iter()
+                    .map(|source| format!("{}", source.display()))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+            })
+        })
+        .collect::<Vec<_>>();
+    if !errors.is_empty() {
+        Err(Error::new(errors.join("\n")))
+    } else {
+        Ok(source_file_names)
+    }
+}
+
 /// Copy each file in `sources` into the directory `dest`.
 fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
     if let Some(err) = match fs::metadata(dest) {
@@ -136,14 +176,11 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
     }
 
     sources
+        .iter()
+        .zip(file_names(sources).unwrap_or_else(|err| fatal(err)))
+        .collect::<Box<_>>()
         .into_par_iter()
-        .map(|source| match source.file_name() {
-            Some(file_name) => copy_file(&source, &dest.join(file_name)),
-            None => {
-                eprintln!("{}: invalid file path", source.display());
-                true
-            }
-        })
+        .map(|(source, file_name)| copy_file(&source, &dest.join(file_name)))
         .reduce(|| false, BitOr::bitor)
 }
 
