@@ -346,3 +346,32 @@ fn prevent_copying_into_self() {
     assert!(!result.success);
     assert!(result.stderr.contains("Cannot overwrite file"));
 }
+
+#[test]
+fn prevent_duplicate_sources() {
+    initialize();
+    let source = HYDRATED_DIR.join("prevent_duplicate_sources");
+    remove(&source);
+    fs::create(&source, 0o777).unwrap();
+    let destination = COPIES_DIR.join("prevent_duplicate_sources");
+    remove(&destination);
+    fs::create_dir(&destination, 0o777).unwrap();
+    // Identical sources
+    let mut result = fcp_run(&[&source, &source, &destination]);
+    assert!(!result.success);
+    assert!(result.stderr.contains("paths have the same file name"));
+    // Different source paths with the same file name
+    result = fcp_run(&[
+        &source,
+        &source
+            .with_file_name("..")
+            .join(HYDRATED_DIR.file_name().unwrap())
+            .join("prevent_duplicate_sources"),
+        &destination,
+    ]);
+    assert!(!result.success);
+    assert!(result.stderr.contains("paths have the same file name"));
+    result = fcp_run(&[&source, &source.canonicalize().unwrap(), &destination]);
+    assert!(!result.success);
+    assert!(result.stderr.contains("paths have the same file name"));
+}
