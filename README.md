@@ -18,7 +18,7 @@ Pre-built binaries for some systems can be found under [this repository's releas
 
 ### Via [`cargo`](https://github.com/rust-lang/cargo)
 
-`fcp` can be installed using `cargo` by running the following:
+`fcp` requires Rust version 1.53.0 or newer. `fcp` can be installed using `cargo` by running the following:
 
 ```sh
 cargo install fcp
