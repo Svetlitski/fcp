@@ -7,7 +7,7 @@ use nix::unistd;
 use std::convert::TryInto;
 use std::error::Error as BaseError;
 use std::fmt;
-use std::fs::{self, DirBuilder, File, Metadata, OpenOptions, Permissions, ReadDir};
+use std::fs::{self, DirBuilder, DirEntry, File, Metadata, OpenOptions, Permissions, ReadDir};
 use std::os::unix::fs::{self as unix, DirBuilderExt, FileTypeExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
@@ -77,6 +77,13 @@ macro_rules! make_error_message {
     };
 }
 
+pub fn entry_file_type(entry: &DirEntry) -> Result<FileType, Error> {
+    match entry.file_type() {
+        Err(err) => Err(Error::new(format!("{}: {}", entry.path().display(), err))),
+        Ok(file_type) => Ok(FileType::from(file_type)),
+    }
+}
+
 pub fn create_dir<P: AsRef<Path>>(path: P, mode: u32) -> Result<(), Error> {
     let path = path.as_ref();
     DirBuilder::new()
@@ -105,35 +112,36 @@ pub fn mkfifo<P: AsRef<Path>>(path: P, permissions: Permissions) -> Result<(), E
 #[derive(Debug)]
 pub enum FileType {
     Regular,
-    Directory(Metadata),
+    Directory,
     Symlink,
-    Fifo(Metadata),
+    Fifo,
     Socket,
-    CharacterDevice(Metadata),
-    BlockDevice(Metadata),
+    CharacterDevice,
+    BlockDevice,
+}
+
+impl From<std::fs::FileType> for FileType {
+    fn from(file_type: std::fs::FileType) -> Self {
+        if file_type.is_file() {
+            FileType::Regular
+        } else if file_type.is_dir() {
+            FileType::Directory
+        } else if file_type.is_symlink() {
+            FileType::Symlink
+        } else if file_type.is_fifo() {
+            FileType::Fifo
+        } else if file_type.is_socket() {
+            FileType::Socket
+        } else if file_type.is_char_device() {
+            FileType::CharacterDevice
+        } else if file_type.is_block_device() {
+            FileType::BlockDevice
+        } else {
+            unreachable!("file appears to exist but is an unknown type",);
+        }
+    }
 }
 
 pub fn file_type(path: &Path) -> Result<FileType, Error> {
-    let metadata = symlink_metadata(path)?;
-    let file_type = metadata.file_type();
-    Ok(if file_type.is_file() {
-        FileType::Regular
-    } else if file_type.is_dir() {
-        FileType::Directory(metadata)
-    } else if file_type.is_symlink() {
-        FileType::Symlink
-    } else if file_type.is_fifo() {
-        FileType::Fifo(metadata)
-    } else if file_type.is_socket() {
-        FileType::Socket
-    } else if file_type.is_char_device() {
-        FileType::CharacterDevice(metadata)
-    } else if file_type.is_block_device() {
-        FileType::BlockDevice(metadata)
-    } else {
-        unreachable!(
-            "{}: file appears to exist but is an unknown type",
-            path.display()
-        );
-    })
+    Ok(FileType::from(symlink_metadata(path)?.file_type()))
 }

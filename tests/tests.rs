@@ -113,7 +113,7 @@ fn fifo() {
     assert!(result.success);
     let file_type =
         fs::file_type(&COPIES_DIR.join(fixture_file.strip_suffix(".json").unwrap())).unwrap();
-    assert!(matches!(file_type, fs::FileType::Fifo(..)))
+    assert!(matches!(file_type, fs::FileType::Fifo))
 }
 
 #[test]

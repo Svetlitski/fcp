@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
 use std::fmt::Display;
-use std::fs::Metadata;
 use std::io;
 use std::ops::BitOr;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -26,22 +25,27 @@ pub fn fatal(message: impl Display) -> ! {
 // long-running jobs) as opposed to propagating it upwards and printing all errors at the end.
 // However, at the end of the process we still need to know whether or not an error occurred at any
 // point in order to set the exit code appropriately.
-fn copy_file(source: &Path, dest: &Path) -> bool {
-    fn __copy_file(source: &Path, dest: &Path) -> Result<bool, Error> {
-        match fs::file_type(source)? {
+fn copy_file(source: &Path, source_type: Option<Result<FileType, Error>>, dest: &Path) -> bool {
+    fn __copy_file(
+        source: &Path,
+        source_type: Result<FileType, Error>,
+        dest: &Path,
+    ) -> Result<bool, Error> {
+        match source_type? {
             FileType::Regular => {
                 fs::copy(source, dest)?;
             }
-            FileType::Directory(metadata) => return copy_directory((source, metadata), dest),
+            FileType::Directory => return copy_directory(source, dest),
             FileType::Symlink => fs::symlink(fs::read_link(source)?, dest)?,
-            FileType::Fifo(metadata) => fs::mkfifo(dest, metadata.permissions())?,
+            FileType::Fifo => fs::mkfifo(dest, fs::symlink_metadata(source)?.permissions())?,
             FileType::Socket => {
                 return Err(Error::new(format!(
                     "{}: sockets cannot be copied",
                     source.display(),
                 )));
             }
-            FileType::CharacterDevice(metadata) | FileType::BlockDevice(metadata) => {
+            FileType::CharacterDevice | FileType::BlockDevice => {
+                let metadata = fs::symlink_metadata(source)?;
                 let mut source = fs::open(source)?;
                 let mut dest = fs::create(dest, metadata.permissions().mode())?;
                 io::copy(&mut source, &mut dest)?;
@@ -50,20 +54,29 @@ fn copy_file(source: &Path, dest: &Path) -> bool {
         Ok(false)
     }
 
-    __copy_file(source, dest).unwrap_or_else(|err| {
+    __copy_file(
+        source,
+        source_type.unwrap_or_else(|| fs::file_type(source)),
+        dest,
+    )
+    .unwrap_or_else(|err| {
         eprintln!("{}", err);
         true
     })
 }
 
-fn copy_directory(source: (&Path, Metadata), dest: &Path) -> Result<bool, Error> {
-    let (source, metadata) = source;
+fn copy_directory(source: &Path, dest: &Path) -> Result<bool, Error> {
+    let metadata = fs::symlink_metadata(source)?;
     fs::create_dir(dest, metadata.permissions().mode())?;
     Ok(fs::read_dir(source)?
         .collect::<Box<_>>()
         .into_par_iter()
         .map(|entry| match entry {
-            Ok(entry) => copy_file(&entry.path(), &dest.join(entry.file_name())),
+            Ok(entry) => copy_file(
+                &entry.path(),
+                Some(fs::entry_file_type(entry)),
+                &dest.join(entry.file_name()),
+            ),
             Err(err) => {
                 eprintln!("{}", err);
                 true
@@ -180,7 +193,7 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
         .zip(file_names(sources).unwrap_or_else(|err| fatal(err)))
         .collect::<Box<_>>()
         .into_par_iter()
-        .map(|(source, file_name)| copy_file(&source, &dest.join(file_name)))
+        .map(|(source, file_name)| copy_file(&source, None, &dest.join(file_name)))
         .reduce(|| false, BitOr::bitor)
 }
 
@@ -193,7 +206,7 @@ fn copy_single(source: &PathBuf, dest: &Path) -> bool {
             source.display(),
             dest.display()
         )),
-        _ => copy_file(source, dest),
+        _ => copy_file(source, None, dest),
     }
 }
 
