@@ -41,14 +41,21 @@ brew install fcp
 Usage information can be found by running `fcp --help`, and has been reproduced below:
 
 ```
-fcp
+fcp 0.2.0
 
 USAGE:
-    fcp SOURCE DESTINATION_FILE
+    fcp [OPTIONS] SOURCE DESTINATION_FILE
     Copy SOURCE to DESTINATION_FILE, overwriting DESTINATION_FILE if it exists
 
-    fcp SOURCE ... DESTINATION_DIRECTORY
+    fcp [OPTIONS] SOURCE ... DESTINATION_DIRECTORY
     Copy each SOURCE into DESTINATION_DIRECTORY
+
+OPTIONS:
+    -h, --help
+            Output this usage information and exit.
+
+    -V, --version
+            Output version information and exit.
 ```
 
 ## Benchmarks
