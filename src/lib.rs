@@ -66,23 +66,28 @@ fn copy_file(source: &Path, source_type: Option<Result<FileType, Error>>, dest: 
 }
 
 fn copy_directory(source: &Path, dest: &Path) -> Result<bool, Error> {
-    let metadata = fs::symlink_metadata(source)?;
-    fs::create_dir(dest, metadata.permissions().mode())?;
-    Ok(fs::read_dir(source)?
-        .collect::<Box<_>>()
-        .into_par_iter()
-        .map(|entry| match entry {
-            Ok(entry) => copy_file(
-                &entry.path(),
-                Some(fs::entry_file_type(entry)),
-                &dest.join(entry.file_name()),
-            ),
+    fs::create_dir(dest, fs::symlink_metadata(source)?.permissions().mode())?;
+    let (mut entries, mut has_err) = (Vec::new(), false);
+    for entry in fs::read_dir(source)? {
+        match entry {
+            Ok(entry) => entries.push((entry.file_name(), fs::entry_file_type(&entry))),
             Err(err) => {
                 eprintln!("{}", err);
-                true
+                has_err = true;
             }
+        }
+    }
+    entries.shrink_to_fit();
+    Ok(entries
+        .into_par_iter()
+        .map(|(file_name, file_type)| {
+            copy_file(
+                &source.join(&file_name),
+                Some(file_type),
+                &dest.join(&file_name),
+            )
         })
-        .reduce(|| false, BitOr::bitor))
+        .reduce(|| has_err, BitOr::bitor))
 }
 
 fn reject_self_copies(sources: &[PathBuf], dest: &Path) -> Result<(), Error> {
