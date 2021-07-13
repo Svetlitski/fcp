@@ -2,7 +2,7 @@
 
 `fcp` is a [significantly faster](#benchmarks) alternative to the classic Unix [`cp(1)`](https://man7.org/linux/man-pages/man1/cp.1.html) command.
 
-`fcp` aims to handle the most common use-cases for `cp` with much higher performance.
+`fcp` aims to handle the most common use-cases of `cp` with much higher performance.
 
 `fcp` does _not_ aim to completely replace `cp` with its myriad options.
 
@@ -26,11 +26,13 @@ cargo install fcp
 
 ### Arch Linux
 
-`fcp` can be installed on Arch Linux via the AUR at: [https://aur.archlinux.org/packages/fcp-git/](https://aur.archlinux.org/packages/fcp-git/)
+`fcp` can be installed on Arch Linux via either of the following AURs:
+- [`fcp-git`](https://aur.archlinux.org/packages/fcp-git/)
+- [`fcp-bin`](https://aur.archlinux.org/packages/fcp-bin/)
 
 ### macOS
 
-`fcp` can be installed on macOS via Homebrew by running the following:
+`fcp` can be installed on macOS via [Homebrew](https://brew.sh/) by running the following:
 
 ```sh
 brew install fcp
@@ -65,11 +67,11 @@ different performance characteristics, the same benchmarks were run on both macO
 
 ### macOS
 
-The following benchmarks were run on a 2018 MacBook Pro<sup><a href="#footnote-2">2</a></sup> (2.9 GHz 6-Core Intel Core i9, 16 GiB RAM, SSD) with [APFS](https://developer.apple.com/documentation/foundation/file_system/about_apple_file_system) as the filesystem.
+The following benchmarks were run on a 2018 MacBook Pro<sup><a href="#footnote-1">1</a></sup> (2.9 GHz 6-Core Intel Core i9, 16 GiB RAM, SSD) with [APFS](https://developer.apple.com/documentation/foundation/file_system/about_apple_file_system) as the filesystem.
 
 #### Large Files
 
-The following shows the result of a benchmark which copies a directory containing 13 different 512 MB files using `cp` and `fcp`, with `fcp` being approximately **822x faster** on average (note the units of the x-axis for each plot)<sup><a href="#footnote-3">3</a></sup>:
+The following shows the result of a benchmark which copies a directory containing 13 different 512 MB files using `cp` and `fcp`, with `fcp` being approximately **822x faster** on average (note the units of the axes for each plot)<sup><a href="#footnote-2">2</a></sup>:
 
 ![`fcp` is approximately 822x faster than `cp`, with `fcp`'s average time to copy being approximately 4.5 milliseconds, while `cp`'s average time to copy is approximately 3.7 seconds](https://user-images.githubusercontent.com/35482043/122131973-a3990080-cdff-11eb-92dc-3e0d5f47ac07.png)
 
@@ -117,13 +119,11 @@ to explain `fcp`'s significantly improved performance relative to `cp`.
 <br>
 <br>
 
-[1] See the [benchmarks](#benchmarks).
-
-<span id="footnote-2">[2]</span> While in general [you should avoid benchmarking on
+<span id="footnote-1">[1]</span> While in general [you should avoid benchmarking on
 laptops](https://lemire.me/blog/my-sayings/), `fcp` is a developer tool and
 many developers work primarily on laptops. Also unlike with Linux where you can
 rent by the second, the minimum tenancy for AWS EC2 macOS instances is 24
 hours, and these benchmarks took less than an hour.
 
-<span id="footnote-3">[3]</span> The massive difference in performance in this case is due
+<span id="footnote-2">[2]</span> The massive difference in performance in this case is due
 to `fcp` using `fclonefileat` and `fcopyfile` under the hood.
