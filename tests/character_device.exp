@@ -8,8 +8,11 @@ set executable  [lindex $argv 0];
 set output_path [lindex $argv 1];
 set contents    [lindex $argv 2];
 
+expect "sh"
 send -- "$executable \$(tty) $output_path\r"
+after 500
 send -- "$contents\x04\x04"
+expect "sh"
 send -- "exit\r"
 
 expect eof
