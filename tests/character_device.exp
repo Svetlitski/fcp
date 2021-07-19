@@ -1,6 +1,9 @@
 #!/usr/bin/expect -f
 
-set timeout -1
+set timeout 20
+# Set PS1 so that we have a consistent value to 'expect',
+# since the default PS1 differs between platforms.
+set ::env(PS1) "sh$"
 
 spawn /bin/sh
 
