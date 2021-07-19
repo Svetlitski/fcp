@@ -9,7 +9,7 @@ readme = "README.md"
 description = "A significantly faster alternative to the classic Unix cp(1) command"
 keywords = ["copy", "unix", "shell", "utility", "fast"]
 categories = ["command-line-utilities", "filesystem"]
-exclude = ["fixtures"]
+exclude = ["/fixtures/", "/.github/"]
 
 [[bin]]
 name = "fcp"
