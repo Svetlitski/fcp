@@ -10,7 +10,7 @@ set contents    [lindex $argv 2];
 
 expect "sh"
 send -- "$executable \$(tty) $output_path\r"
-after 500
+expect "$executable"
 send -- "$contents\x04\x04"
 expect "sh"
 send -- "exit\r"
