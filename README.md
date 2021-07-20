@@ -48,7 +48,7 @@ brew install fcp
 Usage information can be found by running `fcp --help`, and has been reproduced below:
 
 ```
-fcp 0.2.0
+fcp 0.2.1
 
 USAGE:
     fcp [OPTIONS] SOURCE DESTINATION_FILE
