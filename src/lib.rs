@@ -10,9 +10,11 @@ use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process;
 
+pub mod error;
 pub mod filesystem;
 
-use crate::filesystem::{self as fs, Error, FileType};
+use crate::error::{Error, Result};
+use crate::filesystem::{self as fs, FileType};
 
 pub fn fatal(message: impl Display) -> ! {
     eprintln!("{}", message);
@@ -25,12 +27,8 @@ pub fn fatal(message: impl Display) -> ! {
 // long-running jobs) as opposed to propagating it upwards and printing all errors at the end.
 // However, at the end of the process we still need to know whether or not an error occurred at any
 // point in order to set the exit code appropriately.
-fn copy_file(source: &Path, source_type: Option<Result<FileType, Error>>, dest: &Path) -> bool {
-    fn __copy_file(
-        source: &Path,
-        source_type: Result<FileType, Error>,
-        dest: &Path,
-    ) -> Result<bool, Error> {
+fn copy_file(source: &Path, source_type: Option<Result<FileType>>, dest: &Path) -> bool {
+    fn __copy_file(source: &Path, source_type: Result<FileType>, dest: &Path) -> Result<bool> {
         match source_type? {
             FileType::Regular => {
                 fs::copy(source, dest)?;
@@ -65,7 +63,7 @@ fn copy_file(source: &Path, source_type: Option<Result<FileType, Error>>, dest: 
     })
 }
 
-fn copy_directory(source: &Path, dest: &Path) -> Result<bool, Error> {
+fn copy_directory(source: &Path, dest: &Path) -> Result<bool> {
     fs::create_dir(dest, fs::symlink_metadata(source)?.permissions().mode())?;
     let (mut entries, mut has_err) = (Vec::new(), false);
     for entry in fs::read_dir(source)? {
@@ -90,7 +88,7 @@ fn copy_directory(source: &Path, dest: &Path) -> Result<bool, Error> {
         .reduce(|| has_err, BitOr::bitor))
 }
 
-fn reject_self_copies(sources: &[PathBuf], dest: &Path) -> Result<(), Error> {
+fn reject_self_copies(sources: &[PathBuf], dest: &Path) -> Result<()> {
     let current_dir = env::current_dir()?;
     let mut prefix = Path::new("");
     // We make `dest` absolute because for relative paths the final non-`None` value returned by
@@ -143,7 +141,7 @@ fn reject_self_copies(sources: &[PathBuf], dest: &Path) -> Result<(), Error> {
     }
 }
 
-fn file_names(sources: &[PathBuf]) -> Result<Vec<&OsStr>, Error> {
+fn file_names(sources: &[PathBuf]) -> Result<Vec<&OsStr>> {
     let source_file_names = sources
         .iter()
         .map(|source| {
@@ -154,7 +152,7 @@ fn file_names(sources: &[PathBuf]) -> Result<Vec<&OsStr>, Error> {
                 ))
             })
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>>>()?;
     let mut sources_by_name: HashMap<_, Vec<_>> = HashMap::new();
     for (source, file_name) in sources.iter().zip(&source_file_names) {
         sources_by_name.entry(file_name).or_default().push(source);
