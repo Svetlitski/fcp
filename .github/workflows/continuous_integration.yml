@@ -15,7 +15,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - name: Install packages (masOS)
+      - name: Install packages (macOS)
         if: matrix.os == 'macos-latest'
         run: brew install diffutils
       - name: Install packages (Ubuntu)
