@@ -16,7 +16,7 @@ name = "fcp"
 path = "src/main.rs"
 
 [dependencies]
-nix = "0.21.0"
+nix = "0.22.0"
 rayon = "1.5.1"
 
 [dev-dependencies]
