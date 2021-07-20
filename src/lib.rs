@@ -191,6 +191,9 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
         .reduce(|| false, BitOr::bitor)
 }
 
+// The `allow` here is present because clippy doesn't realize that `source` must be of
+// type `&PathBuf` in order for the call to `array::from_ref` to typecheck.
+#[allow(clippy::ptr_arg)]
 fn copy_single(source: &PathBuf, dest: &Path) -> bool {
     let source_metadata = fs::symlink_metadata(source).unwrap_or_else(|err| fatal(err));
     match (fs::metadata(dest), fs::symlink_metadata(dest)) {
