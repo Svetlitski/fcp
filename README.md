@@ -1,5 +1,10 @@
 # fcp
 
+[![CI status](https://github.com/Svetlitski/fcp/actions/workflows/continuous_integration.yml/badge.svg?branch=master)](https://github.com/Svetlitski/fcp/actions/workflows/continuous_integration.yml)
+[![fcp crate](https://img.shields.io/crates/v/fcp.svg)](https://crates.io/crates/fcp)
+[![Packaging status](https://repology.org/badge/tiny-repos/fcp.svg)](https://repology.org/project/fcp/versions)
+
+
 `fcp` is a [significantly faster](#benchmarks) alternative to the classic Unix [`cp(1)`](https://man7.org/linux/man-pages/man1/cp.1.html) command.
 
 `fcp` aims to handle the most common use-cases of `cp` with much higher performance.
