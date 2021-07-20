@@ -27,7 +27,7 @@ pub fn fatal(message: impl Display) -> ! {
 // long-running jobs) as opposed to propagating it upwards and printing all errors at the end.
 // However, at the end of the process we still need to know whether or not an error occurred at any
 // point in order to set the exit code appropriately.
-fn copy_file(source: &Path, source_type: Option<Result<FileType>>, dest: &Path) -> bool {
+fn copy_file(source: &Path, source_type: Result<FileType>, dest: &Path) -> bool {
     fn __copy_file(source: &Path, source_type: Result<FileType>, dest: &Path) -> Result<bool> {
         match source_type? {
             FileType::Regular => {
@@ -52,12 +52,7 @@ fn copy_file(source: &Path, source_type: Option<Result<FileType>>, dest: &Path) 
         Ok(false)
     }
 
-    __copy_file(
-        source,
-        source_type.unwrap_or_else(|| fs::file_type(source)),
-        dest,
-    )
-    .unwrap_or_else(|err| {
+    __copy_file(source, source_type, dest).unwrap_or_else(|err| {
         eprintln!("{}", err);
         true
     })
@@ -79,11 +74,7 @@ fn copy_directory(source: &Path, dest: &Path) -> Result<bool> {
     Ok(entries
         .into_par_iter()
         .map(|(file_name, file_type)| {
-            copy_file(
-                &source.join(&file_name),
-                Some(file_type),
-                &dest.join(&file_name),
-            )
+            copy_file(&source.join(&file_name), file_type, &dest.join(&file_name))
         })
         .reduce(|| has_err, BitOr::bitor))
 }
@@ -196,7 +187,7 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
         .zip(file_names(sources).unwrap_or_else(|err| fatal(err)))
         .collect::<Box<_>>()
         .into_par_iter()
-        .map(|(source, file_name)| copy_file(&source, None, &dest.join(file_name)))
+        .map(|(source, file_name)| copy_file(&source, fs::file_type(source), &dest.join(file_name)))
         .reduce(|| false, BitOr::bitor)
 }
 
@@ -209,7 +200,7 @@ fn copy_single(source: &PathBuf, dest: &Path) -> bool {
             source.display(),
             dest.display()
         )),
-        _ => copy_file(source, None, dest),
+        _ => copy_file(source, fs::file_type(source), dest),
     }
 }
 
