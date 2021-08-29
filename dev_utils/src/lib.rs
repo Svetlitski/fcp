@@ -30,10 +30,10 @@ static INIT: Once = Once::new();
 pub fn initialize() {
     INIT.call_once(|| {
         if !HYDRATED_DIR.exists() {
-            fs::create_dir(&*HYDRATED_DIR, 0o777).unwrap();
+            fs::create_dir(&*HYDRATED_DIR, 0o755).unwrap();
         }
         if !COPIES_DIR.exists() {
-            fs::create_dir(&*COPIES_DIR, 0o777).unwrap();
+            fs::create_dir(&*COPIES_DIR, 0o755).unwrap();
         }
     });
 }
