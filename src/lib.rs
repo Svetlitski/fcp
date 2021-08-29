@@ -187,7 +187,7 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
         .zip(file_names(sources).unwrap_or_else(|err| fatal(err)))
         .collect::<Box<_>>()
         .into_par_iter()
-        .map(|(source, file_name)| copy_file(&source, fs::file_type(source), &dest.join(file_name)))
+        .map(|(source, file_name)| copy_file(source, fs::file_type(source), &dest.join(file_name)))
         .reduce(|| false, BitOr::bitor)
 }
 
