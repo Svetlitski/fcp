@@ -27,6 +27,9 @@ use std::path::Path;
 use std::process::{Command, ExitStatus};
 use std::string::String;
 
+const FILE_MODE: u32 = 0o644;
+const DIR_MODE: u32 = 0o755;
+
 fn diff(filename: &str) -> ExitStatus {
     let filename = filename.strip_suffix(".json").unwrap();
     Command::new("diff")
@@ -201,8 +204,8 @@ fn copy_into() {
     let destination = COPIES_DIR.join("copy_into");
     remove(&source);
     remove(&destination);
-    fs::create(&source, 0o777).unwrap();
-    fs::create_dir(&destination, 0o777).unwrap();
+    fs::create(&source, FILE_MODE).unwrap();
+    fs::create_dir(&destination, DIR_MODE).unwrap();
     let result = fcp_run(&[&source, &destination]);
     assert!(result.success);
     assert_eq!(result.stderr, "");
@@ -257,7 +260,7 @@ fn copy_many_into(fixture_file: &str, create_destination: fn(&Path)) -> CommandR
 fn copy_many_into_success() {
     let fixture_file = "copy_many_into_success.json";
     let result = copy_many_into(fixture_file, |destination| {
-        fs::create_dir(destination, 0o777).unwrap()
+        fs::create_dir(destination, DIR_MODE).unwrap()
     });
     assert!(result.success);
     assert_eq!(result.stderr, "");
@@ -276,7 +279,7 @@ fn copy_many_into_destination_does_not_exist() {
 fn copy_many_into_destination_is_not_directory() {
     let fixture_file = "copy_many_into_destination_is_not_directory.json";
     let result = copy_many_into(fixture_file, |destination| {
-        fs::create(destination, 0o777).unwrap();
+        fs::create(destination, FILE_MODE).unwrap();
     });
     assert!(!result.success);
     assert!(result.stderr.contains("is not a directory"));
@@ -293,7 +296,7 @@ fn copy_many_into_permissions_error() {
     let fixture_file = "copy_many_into_permissions_error.json";
     let fixture_name = fixture_file.strip_suffix(".json").unwrap();
     let result = copy_many_into(fixture_file, |destination| {
-        fs::create_dir(destination, 0o777).unwrap();
+        fs::create_dir(destination, DIR_MODE).unwrap();
     });
     assert!(!result.success);
     assert!(result.stderr.contains("two.txt"));
@@ -321,12 +324,12 @@ fn prevent_copying_into_self() {
 
     let source = HYDRATED_DIR.join("prevent_copying_into_self");
     remove(&source);
-    fs::create_dir(&source, 0o777).unwrap();
+    fs::create_dir(&source, DIR_MODE).unwrap();
     // Directly copying into self
     assert_self_copy_failure(&[&source, &source]);
     let other = HYDRATED_DIR.join("prevent_copying_into_self_other");
     remove(&other);
-    fs::create_dir(&other, 0o777).unwrap();
+    fs::create_dir(&other, DIR_MODE).unwrap();
     // Directly copying into self, but other sources are okay
     assert_self_copy_failure(&[&other, &source, &source]);
     // Copying into self by way of parent directory
@@ -340,7 +343,7 @@ fn prevent_copying_into_self() {
     // Copying into self by way of purely relative paths
     assert_self_copy_failure(&[Path::new(".."), Path::new(".")]);
     let normal = source.join("normal");
-    fs::create(&normal, 0o777).unwrap();
+    fs::create(&normal, FILE_MODE).unwrap();
     // Copying a non-directory onto itself
     let result = fcp_run(&[&normal, &normal]);
     assert!(!result.success);
@@ -352,10 +355,10 @@ fn prevent_duplicate_sources() {
     initialize();
     let source = HYDRATED_DIR.join("prevent_duplicate_sources");
     remove(&source);
-    fs::create(&source, 0o777).unwrap();
+    fs::create(&source, FILE_MODE).unwrap();
     let destination = COPIES_DIR.join("prevent_duplicate_sources");
     remove(&destination);
-    fs::create_dir(&destination, 0o777).unwrap();
+    fs::create_dir(&destination, DIR_MODE).unwrap();
     // Identical sources
     let mut result = fcp_run(&[&source, &source, &destination]);
     assert!(!result.success);
