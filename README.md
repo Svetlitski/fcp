@@ -31,9 +31,16 @@ cargo install fcp
 
 ### Arch Linux
 
-`fcp` can be installed on Arch Linux via either of the following AURs:
-- [`fcp-git`](https://aur.archlinux.org/packages/fcp-git/)
-- [`fcp-bin`](https://aur.archlinux.org/packages/fcp-bin/)
+`fcp` can be installed on Arch Linux via the [`fcp-bin` AUR](https://aur.archlinux.org/packages/fcp-bin/).
+
+### NixOS
+
+`fcp` is available through `nixpkgs-unstable`. Assuming you've already added the `nixpkgs-unstable` channel,
+`fcp` can be installed by running the following:
+
+```sh
+nix-env -iA unstable.fcp
+```
 
 ### macOS
 
