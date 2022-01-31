@@ -44,7 +44,7 @@ wrap2!(copy, fs, u64);
 
 macro_rules! make_error_message {
     ($path:ident) => {
-        |err| Error::new(format!("{}: {}", $path.display(), err));
+        |err| Error::new(format!("{}: {}", $path.display(), err))
     };
 }
 
