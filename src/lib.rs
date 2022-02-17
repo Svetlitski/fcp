@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
 use std::fmt::Display;
+use std::fs::Metadata;
 use std::io;
 use std::ops::BitOr;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -95,26 +96,32 @@ fn reject_self_copies(sources: &[PathBuf], dest: &Path) -> Result<()> {
         dest.to_path_buf()
     };
 
-    // We use `fs::metadata` for `ancestor_inos` since we do the exact same thing regardless of
-    // whether `dest` is a directory or a symlink pointing to one.
-    let ancestor_inos = dest
-        .ancestors()
-        .map(|ancestor| fs::metadata(ancestor).map(|meta| meta.ino()));
+    // Combine device number with inode number to uniquely identify a file,
+    // since the same inode number could be used in a different filesystem.
+    fn unique_id(meta: Metadata) -> (u64, u64) {
+        (meta.dev(), meta.ino())
+    }
 
-    // In contrast, we use `fs::symlink_metadata` for `source_inos` because we copy the symlinks
+    // We use `fs::metadata` for `ancestor_ids` since we do the exact same thing regardless of
+    // whether `dest` is a directory or a symlink pointing to one.
+    let ancestor_ids = dest
+        .ancestors()
+        .map(|ancestor| fs::metadata(ancestor).map(unique_id));
+
+    // In contrast, we use `fs::symlink_metadata` for `source_ids` because we copy the symlinks
     // themselves, not the underlying files that they point to.
-    let source_inos = sources
+    let source_ids = sources
         .iter()
-        .map(|source| fs::symlink_metadata(source).map(|meta| meta.ino()))
+        .map(|source| fs::symlink_metadata(source).map(unique_id))
         .collect::<Box<_>>();
 
     let mut errors = Vec::new();
 
-    for (ancestor, ino) in dest.ancestors().zip(ancestor_inos) {
-        let ino = ino?;
-        for (source, source_ino) in sources.iter().zip(source_inos.as_ref()) {
-            match source_ino {
-                Ok(source_ino) if *source_ino == ino => errors.push(format!(
+    for (ancestor, id) in dest.ancestors().zip(ancestor_ids) {
+        let id = id?;
+        for (source, source_id) in sources.iter().zip(source_ids.as_ref()) {
+            match source_id {
+                Ok(source_id) if *source_id == id => errors.push(format!(
                     "Cannot copy directory '{}' into itself '{}'",
                     source.display(),
                     ancestor.strip_prefix(prefix).unwrap_or(ancestor).display()
