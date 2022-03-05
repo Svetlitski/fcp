@@ -35,8 +35,10 @@ cargo install fcp
 
 ### NixOS
 
-`fcp` is available through `nixpkgs-unstable`. Assuming you've already added the `nixpkgs-unstable` channel,
-`fcp` can be installed by running the following:
+As of NixOS 21.11 `fcp` is included in the stable channel. For earlier
+versions, `fcp` is available through `nixpkgs-unstable`. Assuming you've
+already added the `nixpkgs-unstable` channel, `fcp` can be installed by running
+the following:
 
 ```sh
 nix-env -iA unstable.fcp
