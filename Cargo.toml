@@ -2,7 +2,7 @@
 name = "fcp"
 version = "0.2.1"
 authors = ["Kevin Svetlitski <kevin_svetlitski@berkeley.edu>"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/Svetlitski/fcp"
 license-file = "LICENSE"
 readme = "README.md"
@@ -16,11 +16,11 @@ name = "fcp"
 path = "src/main.rs"
 
 [dependencies]
-nix = "0.22.0"
-rayon = "1.5.1"
+nix = "0.25.0"
+rayon = "1.5.3"
 
 [dev-dependencies]
-criterion = { version = "0.3.4", features = ["html_reports"] }
+criterion = { version = "0.3.6", features = ["html_reports"] }
 dev_utils = { path = "dev_utils" }
 
 [[bench]]
