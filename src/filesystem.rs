@@ -40,7 +40,6 @@ wrap!(fs, canonicalize, PathBuf);
 wrap!(fs, create_dir_all, ());
 wrap!(File, open, File);
 wrap2!(symlink, unix, ());
-wrap2!(copy, fs, u64);
 
 macro_rules! make_error_message {
     ($path:ident) => {
@@ -115,4 +114,10 @@ impl From<std::fs::FileType> for FileType {
 
 pub fn file_type(path: &Path) -> Result<FileType> {
     Ok(FileType::from(symlink_metadata(path)?.file_type()))
+}
+
+pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(source: P, dest: Q) -> Result<u64> {
+    let (source, dest) = (source.as_ref(), dest.as_ref());
+    crate::copy::copy(source, dest)
+        .map_err(|err| Error::new(format!("{}, {}: {}", source.display(), dest.display(), err)))
 }
