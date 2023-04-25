@@ -17,6 +17,9 @@ OPTIONS:
     -h, --help
             Output this usage information and exit.
 
+    -n, --no-clobber
+            Do not overwrite an existing file.
+
     -V, --version
             Output version information and exit."
 );
@@ -24,13 +27,16 @@ OPTIONS:
 static VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    let args: Box<_> = env::args().skip(1).collect();
-    for arg in args.iter() {
-        match arg.as_str() {
-            "-h" | "--help" => fatal(HELP),
-            "-V" | "--version" => fatal(VERSION),
-            _ => {}
-        }
-    }
-    process::exit(fcp(&args) as i32);
+    let mut args: Vec<String> = env::args().skip(1).collect();
+    let mut no_clobber = false;
+    args.retain(|arg| match arg.as_str() {
+        "-h" | "--help" => fatal(HELP),
+        "-n" | "--no-clobber" => {
+            no_clobber = true;
+            false
+        },
+        "-V" | "--version" => fatal(VERSION),
+        _ => true,
+    });
+    process::exit(fcp(&args, no_clobber) as i32);
 }

@@ -28,13 +28,20 @@ pub fn fatal(message: impl Display) -> ! {
 // long-running jobs) as opposed to propagating it upwards and printing all errors at the end.
 // However, at the end of the process we still need to know whether or not an error occurred at any
 // point in order to set the exit code appropriately.
-fn copy_file(source: &Path, source_type: Result<FileType>, dest: &Path) -> bool {
-    fn __copy_file(source: &Path, source_type: Result<FileType>, dest: &Path) -> Result<bool> {
+fn copy_file(source: &Path, source_type: Result<FileType>, dest: &Path, no_clobber: bool) -> bool {
+    fn __copy_file(source: &Path, source_type: Result<FileType>, dest: &Path, no_clobber: bool) -> Result<bool> {
+        if no_clobber && dest.exists() {
+            return Err(Error::new(format!(
+                "{} already exists, skip copying",
+                dest.display(),
+            )));
+        }
+
         match source_type? {
             FileType::Regular => {
                 fs::copy(source, dest)?;
             }
-            FileType::Directory => return copy_directory(source, dest),
+            FileType::Directory => return copy_directory(source, dest, no_clobber),
             FileType::Symlink => fs::symlink(fs::read_link(source)?, dest)?,
             FileType::Fifo => fs::mkfifo(dest, fs::symlink_metadata(source)?.permissions())?,
             FileType::Socket => {
@@ -53,13 +60,13 @@ fn copy_file(source: &Path, source_type: Result<FileType>, dest: &Path) -> bool 
         Ok(false)
     }
 
-    __copy_file(source, source_type, dest).unwrap_or_else(|err| {
+    __copy_file(source, source_type, dest, no_clobber).unwrap_or_else(|err| {
         eprintln!("{}", err);
         true
     })
 }
 
-fn copy_directory(source: &Path, dest: &Path) -> Result<bool> {
+fn copy_directory(source: &Path, dest: &Path, no_clobber: bool) -> Result<bool> {
     fs::create_dir(dest, fs::symlink_metadata(source)?.permissions().mode())?;
     let (mut entries, mut has_err) = (Vec::new(), false);
     for entry in fs::read_dir(source)? {
@@ -75,7 +82,7 @@ fn copy_directory(source: &Path, dest: &Path) -> Result<bool> {
     Ok(entries
         .into_par_iter()
         .map(|(file_name, file_type)| {
-            copy_file(&source.join(&file_name), file_type, &dest.join(&file_name))
+            copy_file(&source.join(&file_name), file_type, &dest.join(&file_name), no_clobber)
         })
         .reduce(|| has_err, BitOr::bitor))
 }
@@ -178,7 +185,7 @@ fn file_names(sources: &[PathBuf]) -> Result<Vec<&OsStr>> {
 }
 
 /// Copy each file in `sources` into the directory `dest`.
-fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
+fn copy_into(sources: &[PathBuf], dest: &Path, no_clobber: bool) -> bool {
     if let Some(err) = match fs::metadata(dest) {
         Err(err) => Some(err),
         Ok(metadata) if !metadata.is_dir() => {
@@ -194,31 +201,31 @@ fn copy_into(sources: &[PathBuf], dest: &Path) -> bool {
         .zip(file_names(sources).unwrap_or_else(|err| fatal(err)))
         .collect::<Box<_>>()
         .into_par_iter()
-        .map(|(source, file_name)| copy_file(source, fs::file_type(source), &dest.join(file_name)))
+        .map(|(source, file_name)| copy_file(source, fs::file_type(source), &dest.join(file_name), no_clobber))
         .reduce(|| false, BitOr::bitor)
 }
 
 // The `allow` here is present because clippy doesn't realize that `source` must be of
 // type `&PathBuf` in order for the call to `array::from_ref` to typecheck.
 #[allow(clippy::ptr_arg)]
-fn copy_single(source: &PathBuf, dest: &Path) -> bool {
+fn copy_single(source: &PathBuf, dest: &Path, no_clobber: bool) -> bool {
     let source_metadata = fs::symlink_metadata(source).unwrap_or_else(|err| fatal(err));
     match (fs::metadata(dest), fs::symlink_metadata(dest)) {
-        (Ok(metadata), _) if metadata.is_dir() => copy_into(array::from_ref(source), dest),
+        (Ok(metadata), _) if metadata.is_dir() => copy_into(array::from_ref(source), dest, no_clobber),
         (_, Ok(metadata)) if source_metadata.ino() == metadata.ino() => fatal(format!(
             "Cannot overwrite file '{}' with itself '{}'",
             source.display(),
             dest.display()
         )),
-        _ => copy_file(source, fs::file_type(source), dest),
+        _ => copy_file(source, fs::file_type(source), dest, no_clobber),
     }
 }
 
-pub fn fcp(args: &[String]) -> bool {
+pub fn fcp(args: &[String], no_clobber: bool) -> bool {
     let args: Box<_> = args.iter().map(PathBuf::from).collect();
     match args.as_ref() {
         [] | [_] => fatal("Please provide at least two arguments (run 'fcp --help' for details)"),
-        [source, dest] => copy_single(source, dest),
-        [sources @ .., dest] => copy_into(sources, dest),
+        [source, dest] => copy_single(source, dest, no_clobber),
+        [sources @ .., dest] => copy_into(sources, dest, no_clobber),
     }
 }
