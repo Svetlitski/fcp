@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
 use std::fmt::Display;
-use std::fs::Metadata;
+use std::fs::{set_permissions, Metadata};
 use std::io;
 use std::ops::BitOr;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
@@ -60,7 +60,7 @@ fn copy_file(source: &Path, source_type: Result<FileType>, dest: &Path) -> bool 
 }
 
 fn copy_directory(source: &Path, dest: &Path) -> Result<bool> {
-    fs::create_dir(dest, fs::symlink_metadata(source)?.permissions().mode())?;
+    fs::create_dir(dest)?;
     let (mut entries, mut has_err) = (Vec::new(), false);
     for entry in fs::read_dir(source)? {
         match entry {
@@ -72,12 +72,15 @@ fn copy_directory(source: &Path, dest: &Path) -> Result<bool> {
         }
     }
     entries.shrink_to_fit();
-    Ok(entries
+    let resutl = entries
         .into_par_iter()
         .map(|(file_name, file_type)| {
             copy_file(&source.join(&file_name), file_type, &dest.join(&file_name))
         })
-        .reduce(|| has_err, BitOr::bitor))
+        .reduce(|| has_err, BitOr::bitor);
+    let _ = set_permissions(dest, fs::symlink_metadata(source)?.permissions())
+        .map_err(|err| Error::new(format!("{}: {}", <Path as AsRef<Path>>::as_ref(dest).display(), err)));
+    Ok(resutl)
 }
 
 fn reject_self_copies(sources: &[PathBuf], dest: &Path) -> Result<()> {

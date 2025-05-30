@@ -24,7 +24,7 @@ OPTIONS:
 static VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    let args: Box<_> = env::args().skip(1).collect();
+    let args: Box<_> = Box::new(env::args().skip(1).collect::<Vec<_>>());
     for arg in args.iter() {
         match arg.as_str() {
             "-h" | "--help" => fatal(HELP),
@@ -33,4 +33,12 @@ fn main() {
         }
     }
     process::exit(fcp(&args) as i32);
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test() {
+
+    }
 }
