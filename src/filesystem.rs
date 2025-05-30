@@ -6,8 +6,8 @@ use crate::error::{Error, Result};
 use nix::sys::stat::Mode;
 use nix::unistd;
 use std::convert::TryInto;
-use std::fs::{self, DirBuilder, DirEntry, File, Metadata, OpenOptions, Permissions, ReadDir};
-use std::os::unix::fs::{self as unix, DirBuilderExt, FileTypeExt, OpenOptionsExt, PermissionsExt};
+use std::fs::{self, DirEntry, File, Metadata, OpenOptions, Permissions, ReadDir};
+use std::os::unix::fs::{self as unix, FileTypeExt, OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 macro_rules! wrap {
@@ -38,6 +38,7 @@ wrap!(fs, remove_dir_all, ());
 wrap!(fs, remove_file, ());
 wrap!(fs, canonicalize, PathBuf);
 wrap!(fs, create_dir_all, ());
+wrap!(fs, create_dir, ());
 wrap!(File, open, File);
 wrap2!(symlink, unix, ());
 wrap2!(copy, fs, u64);
@@ -53,14 +54,6 @@ pub fn entry_file_type(entry: &DirEntry) -> Result<FileType> {
         Err(err) => Err(Error::new(format!("{}: {}", entry.path().display(), err))),
         Ok(file_type) => Ok(FileType::from(file_type)),
     }
-}
-
-pub fn create_dir<P: AsRef<Path>>(path: P, mode: u32) -> Result<()> {
-    let path = path.as_ref();
-    DirBuilder::new()
-        .mode(mode)
-        .create(path)
-        .map_err(make_error_message!(path))
 }
 
 pub fn create<P: AsRef<Path>>(path: P, mode: u32) -> Result<File> {
