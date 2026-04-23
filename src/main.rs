@@ -24,7 +24,7 @@ OPTIONS:
 static VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    let args: Box<_> = env::args().skip(1).collect();
+    let args: Box<[String]> = env::args().skip(1).collect();
     for arg in args.iter() {
         match arg.as_str() {
             "-h" | "--help" => fatal(HELP),
